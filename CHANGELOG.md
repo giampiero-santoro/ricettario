@@ -2,6 +2,15 @@
 
 Tutte le modifiche rilevanti al progetto sono documentate in questo file.
 
+## [3.46.0] — Rifinitura visiva
+
+### Aggiunto
+- Le card delle ricette **senza foto** mostrano ora un'illustrazione al posto del vuoto: un riquadro sfumato nel colore della categoria con un piccolo simbolo (🍝 Primi, 🍖 Secondi, 🥣 Zuppe, 🍞 Impasti & Pane, 🫙 Salse & Sughi, 🍰 Dolci, 🍵 Infusi & Tisane, 🍽️ Altro), così l'elenco resta curato anche prima di aver caricato immagini
+- La stellina dei preferiti nelle card ha ora un piccolo sfondo scuro semitrasparente, per restare leggibile sopra qualunque foto o colore
+- Due piccoli angoli dorati sul pannello principale ("il libro"), come su una pagina miniata
+- Grana sottilissima sullo sfondo della pagina, per una resa meno piatta
+- Un piccolo simbolo ✦ sopra i messaggi "nessun risultato" (elenco ricette e dispensa vuoti)
+
 ## [3.45.0] — Suite di test automatici
 
 ### Aggiunto

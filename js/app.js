@@ -131,6 +131,14 @@
     'Impasti & Pane': '#b8892c', 'Salse & Sughi': '#a64b2a', 'Dolci': '#b83a6b',
     'Infusi & Tisane': '#8a6642', 'Altro': '#3f6e79'
   };
+  // Un piccolo simbolo per categoria, usato come illustrazione al posto della
+  // foto nelle card senza immagine: così l'elenco ricette resta curato anche
+  // prima di aver fotografato qualcosa.
+  const CATEGORY_ICONS = {
+    'Primi': '🍝', 'Secondi': '🍖', 'Zuppe & Vellutate': '🥣',
+    'Impasti & Pane': '🍞', 'Salse & Sughi': '🫙', 'Dolci': '🍰',
+    'Infusi & Tisane': '🍵', 'Altro': '🍽️'
+  };
 
   // ---------- Storage ----------
   function loadRecipes(){
@@ -1161,7 +1169,9 @@
         ${selectionMode
           ? `<span class="card-select-box">${selezionata ? '☑️' : '⬜'}</span>`
           : `<button class="star ${r.favorite?'active':''}" data-id="${r.id}">★</button>`}
-        ${r.photo ? `<img class="thumb" src="${r.photo}" alt="${escapeAttr(r.name)}">` : ''}
+        ${r.photo
+          ? `<img class="thumb" src="${r.photo}" alt="${escapeAttr(r.name)}">`
+          : `<div class="thumb thumb-placeholder" aria-hidden="true">${CATEGORY_ICONS[r.category] || '🍽️'}</div>`}
         <span class="cat-tag">${escapeHtml(r.category)}</span>
         ${recipeHasPressure(r) ? '<span class="pressure-badge" title="Ha passaggi per pentola a pressione">🍲</span>' : ''}
         ${recipeHasRobot(r) ? '<span class="robot-badge" title="Ha passaggi con impostazioni robot da cucina">🤖</span>' : ''}
