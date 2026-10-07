@@ -2,6 +2,72 @@
 
 Tutte le modifiche rilevanti al progetto sono documentate in questo file.
 
+## [3.45.0] — Suite di test automatici
+
+### Aggiunto
+- Nuova cartella `tests/` con una **suite di test automatici permanente** (Playwright), che sostituisce gli script usa-e-getta scritti ad ogni modifica durante lo sviluppo: apre l'app in un vero browser e verifica da zero i flussi principali — CRUD ricette, CRUD dispensa con soglia scorte minime, pianificazione → lista della spesa (conversione unità, raggruppamento per reparto, persistenza delle spunte), allergeni e suggerimento congelamento/porzione doppia, archiviazione e recupero ricette, menu ☰ di navigazione mobile, modalità cucina guidata, annullamento del modale di conferma
+- `tests/run_all.py` esegue tutti i test in sequenza e stampa un riepilogo OK/FALLITO; avvia da solo un server locale sui file del progetto, non serve altro
+- `tests/README.md` spiega come installare Playwright, lanciare la suite e aggiungere nuovi test in futuro
+
+## [3.44.0] — Esportazione PDF di tutto il ricettario
+
+### Aggiunto
+- Nuova voce **"📖 Esporta tutto il ricettario (PDF)"** nel menu "📦 Backup e CSV": genera un unico file PDF con un indice iniziale e tutte le ricette, una per pagina, con lo stesso dettaglio (ingredienti, passaggi, valori nutrizionali, note) dell'esportazione di una singola ricetta. Le ricette archiviate restano escluse
+
+## [3.43.0] — Ritaglio e rotazione della foto ricetta
+
+### Aggiunto
+- Appena scelta una foto per una ricetta, si apre ora un piccolo editor per **ritagliarla e ruotarla** prima di salvarla: un riquadro trascinabile e ridimensionabile sceglie l'area da mantenere, un pulsante **"⟲ Ruota"** gira l'immagine di 90° ad ogni tocco, e **"Reimposta"** torna all'originale. Funziona anche su una foto già salvata, tramite il nuovo pulsante **"✂️ Ritaglia/ruota"** accanto all'anteprima nel modulo di modifica. Nessuna libreria esterna: tutto fatto con canvas e gesti di trascinamento, compatibile anche su schermo touch
+
+## [3.42.0] — Flusso Pianificazione/Dispensa/Spesa più lineare
+
+### Aggiunto
+- Scorciatoie dirette tra **Pianificazione** e **Dispensa**: un pulsante in ciascuna delle due viste porta subito all'altra, senza passare dal menu di navigazione in alto
+- Accanto a **"🛒 Lista della spesa (settimana)"** compare ora un piccolo numero con quante voci ci sarebbero già da comprare, calcolato in automatico
+- Nella lista della spesa, dopo aver spuntato un ingrediente e aggiornato la Dispensa, l'avviso di conferma include un link **"Vedi Dispensa →"** per passare subito a controllarla
+
+### Risolto
+- Cambiare **"Per quante persone stai pianificando?"** ora aggiorna subito i totali nutrizionali per pasto/giorno nella vista Pianificazione, invece di restare fermo al valore precedente fino al cambio di giorno
+
+## [3.41.0] — Menu di navigazione ☰ su schermo piccolo
+
+### Aggiunto
+- Sotto i 760px di larghezza, la fila di 7 pulsanti di navigazione (uno piuttosto lungo: "🌾 Valori Alimenti dal sito CREA") viene sostituita da un pulsante **"☰"** che apre un menu a tendina con le stesse destinazioni, impilate e con un'area di tocco più generosa, invece di restare sempre visibile occupando molto spazio verticale sullo schermo del telefono. Il pulsante mostra sempre la vista in cui ti trovi, il menu si chiude da solo dopo aver scelto una voce, toccando fuori, o con il tasto Esc
+- Verificata l'assenza di scorrimento orizzontale indesiderato su schermi stretti (360px) nelle viste principali e nel modulo ricetta
+
+## [3.40.0] — Unità di misura uniformate
+
+### Aggiunto
+- I campi "Unità" (ricette, Dispensa, lista della spesa) propongono ora un menu a tendina con le unità più comuni (g, kg, ml, l, pz, cucchiaio/cucchiai, cucchiaino/cucchiaini, pizzico, tazza, fetta, spicchio, rametto, filetto, foglia), restando comunque testo libero
+
+### Modificato
+- Il sito ora riconosce come equivalenti le forme diverse della stessa unità (es. "g"/"grammi", "kg"/"g" con la conversione corretta, "cucchiaio"/"cucchiai"), e questo migliora diversi punti in cui prima un'unità scritta diversamente spezzava il confronto:
+  - la **lista della spesa** ora somma in un'unica riga lo stesso ingrediente usato con unità diverse ma equivalenti in più ricette, invece di sdoppiarlo
+  - spuntare un ingrediente della lista della spesa **aggiorna la Dispensa** sommando correttamente anche tra unità equivalenti diverse
+  - segnare un pasto come **"consumato"** scala ora la Dispensa convertendo l'unità, invece di saltare l'aggiornamento per una differenza solo di scrittura
+
+## [3.39.0] — Suggerimento porzione doppia/congelabile
+
+### Aggiunto
+- Nuova spunta **"❄️ Si congela bene"** nel modulo di modifica. Quando è attiva, nella vista della ricetta compare un avviso con il pulsante **"👯 Raddoppia le porzioni"**, che ricalcola subito le quantità per il doppio delle porzioni — comodo per preparare una porzione extra da congelare senza fare i conti a mano
+
+## [3.38.0] — Allergeni distinti dai tag e archivio ricette
+
+### Aggiunto
+- Nuova sezione **"Allergeni contenuti"** nel modulo di modifica, separata dai tag dietetici: i 14 allergeni a dichiarazione obbligatoria nell'UE (Glutine, Crostacei, Uova, Pesce, Arachidi, Soia, Latte, Frutta a guscio, Sedano, Senape, Semi di sesamo, Anidride solforosa e solfiti, Lupini, Molluschi), selezionabili a mano. Compaiono nella scheda della ricetta come etichette rosse distinte dai tag, ed entrano anche nell'esportazione PDF e CSV
+- Nuovo filtro nel pannello "Filtri" per **escludere dalla lista le ricette che contengono uno o più allergeni** scelti
+- Possibilità di **archiviare una ricetta** ("📦 Archivia" nella vista) per nasconderla dall'elenco principale, dalla ricerca, dai filtri e da "Cosa posso cucinare?" senza eliminarla. Il pulsante **"📦 Mostra archiviate"** nella barra dei filtri permette di ritrovarla e ripristinarla ("📂 Disarchivia") in qualsiasi momento
+
+## [3.37.0] — Avvisi più chiari prima di eliminare qualcosa
+
+### Modificato
+- Le azioni che non si possono annullare (eliminare una o più ricette, un prodotto dalla Dispensa, una voce o una fascia dalla pianificazione, svuotare la settimana, chiudere un modulo con modifiche non salvate) mostrano ora un avviso dedicato del sito, con un pulsante rosso per le eliminazioni, al posto del riquadro generico del browser. L'avviso spiega cosa sta per succedere e, dove utile, come recuperare i dati.
+
+## [3.36.0] — "Aggiungi settimana scorsa" non sovrascrive più
+
+### Modificato
+- **"📋 Copia settimana scorsa"** è diventato **"➕ Aggiungi settimana scorsa"**: prima sostituiva del tutto la pianificazione attuale (rischiando di perdere quello che avevi già pianificato per questa settimana), ora le voci della settimana scorsa si aggiungono a quelle di oggi, giorno per giorno, senza cancellare nulla. Arrivano già segnate come "da consumare", senza ereditare la spunta ✓ della settimana precedente.
+
 ## [3.35.0] — Schermo acceso in modalità cucina
 
 ### Aggiunto

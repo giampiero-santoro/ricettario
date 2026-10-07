@@ -31,7 +31,10 @@
   <div class="sub">Le tue ricette annotate, adattate, tramandate</div>
 </div>
 
-<div class="view-nav">
+<div class="mobile-nav-bar">
+  <button type="button" id="nav-hamburger-btn" aria-label="Apri il menu" aria-expanded="false">☰ <span id="nav-current-label">Ricettario</span></button>
+</div>
+<div class="view-nav" id="view-nav">
   <button class="view-nav-btn" id="nav-today-btn">☀️ Oggi</button>
   <button class="view-nav-btn active" id="nav-recipes-btn">📖 Ricettario</button>
   <button class="view-nav-btn" id="nav-planning-btn">📅 Pianificazione</button>
@@ -85,6 +88,8 @@
           <button id="export-csv-btn">⬇ Esporta CSV</button>
           <button id="import-csv-btn">⬆ Importa CSV</button>
           <input type="file" id="import-csv-file-input" accept=".csv,text/csv" style="display:none;">
+          <div class="menu-divider"></div>
+          <button id="export-all-pdf-btn">📖 Esporta tutto il ricettario (PDF)</button>
         </div>
       </div>
       <div class="menu-wrap">
@@ -172,6 +177,7 @@
         <option value="has-time">Con tempo indicato</option>
       </select>
       <button class="btn-ghost" id="favorites-filter-btn">★ Solo preferite</button>
+      <button class="btn-ghost" id="archived-filter-btn">📦 Mostra archiviate</button>
       <button class="btn-ghost" id="advanced-filters-toggle">🔍 Cottura, tag ed esclusioni ▾</button>
     </div>
   </div>
@@ -190,7 +196,9 @@
       <button class="btn-ghost btn-small" id="exclude-clear-btn" style="display:none;">Rimuovi esclusione</button>
     </div>
     <div class="filter-section-label">Tag dietetici</div>
-    <div class="panel-row" id="tag-filter-row" style="margin-bottom:0;"></div>
+    <div class="panel-row" id="tag-filter-row" style="margin-bottom:14px;"></div>
+    <div class="filter-section-label">Escludi ricette con questi allergeni</div>
+    <div class="panel-row" id="allergen-filter-row" style="margin-bottom:0;"></div>
   </div>
 
   <div id="recipe-list"></div>
@@ -203,7 +211,10 @@
         <h2>📅 Pianificazione settimanale</h2>
         <div class="panel-sub">Colazione, pranzo, cena, spuntini — più ricette per ogni fascia, con orario facoltativo</div>
       </div>
-      <button class="btn-ghost btn-small" id="add-mealtype-btn">+ Aggiungi fascia pasto</button>
+      <div class="toolbar-group">
+        <button class="btn-ghost btn-small" id="planning-goto-dispensa-btn" title="Apri la Dispensa per controllare cosa hai già">🥫 Dispensa</button>
+        <button class="btn-ghost btn-small" id="add-mealtype-btn">+ Aggiungi fascia pasto</button>
+      </div>
     </div>
 
     <div class="panel-row" style="align-items:center;">
@@ -221,10 +232,10 @@
 
     <div class="modal-actions" style="border-top:1px solid var(--line);padding-top:16px;margin-top:4px;">
       <button class="btn-ghost" id="clear-week-btn">Svuota settimana</button>
-      <button class="btn-ghost" id="copy-last-week-btn">📋 Copia settimana scorsa</button>
+      <button class="btn-ghost" id="copy-last-week-btn" title="Aggiunge le ricette della settimana scorsa a quella attuale, senza cancellare quello che hai già pianificato">➕ Aggiungi settimana scorsa</button>
       <button class="btn-ghost" id="export-week-pdf-btn">⬇ Esporta PDF settimana</button>
       <div style="flex:1;"></div>
-      <button class="btn-gold" id="generate-shopping-btn">🛒 Lista della spesa (settimana)</button>
+      <button class="btn-gold" id="generate-shopping-btn">🛒 Lista della spesa (settimana)<span id="planning-shopping-count" style="display:none;"></span></button>
     </div>
   </div>
 
@@ -256,6 +267,9 @@
           <option value="Snack e dolciumi">Snack e dolciumi</option>
           <option value="Altro">Altro</option>
         </select>
+      </div>
+      <div class="toolbar-group">
+        <button class="btn-ghost" id="dispensa-goto-planning-btn" title="Apri la Pianificazione per vedere cosa hai in programma">📅 Pianificazione</button>
       </div>
     </div>
 
@@ -388,7 +402,19 @@
 
     <div class="field">
       <label>Tag dietetici (facoltativi)</label>
+      <div class="panel-sub" style="margin:-2px 0 6px;">Per chi è adatta questa ricetta</div>
       <div class="tag-checks" id="f-tags-wrap"></div>
+    </div>
+
+    <div class="field">
+      <label>Allergeni contenuti (facoltativi)</label>
+      <div class="panel-sub" style="margin:-2px 0 6px;">Cosa contiene questa ricetta, da segnalare a chi la mangia — diverso dai tag dietetici qui sopra</div>
+      <div class="tag-checks allergen-checks" id="f-allergens-wrap"></div>
+    </div>
+
+    <div class="field">
+      <label><input type="checkbox" id="f-freezable"> ❄️ Si congela bene</label>
+      <div class="panel-sub" style="margin:2px 0 0;">Se attivo, nella scheda della ricetta compare un suggerimento per preparare una porzione doppia e congelare il resto</div>
     </div>
 
     <div class="row">
@@ -431,7 +457,10 @@
     <div class="field">
       <label>Foto (opzionale)</label>
       <input type="file" id="f-photo" accept="image/*">
-      <img id="f-photo-preview" class="photo-preview" alt="Anteprima foto ricetta" style="display:none;">
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-top:8px;">
+        <img id="f-photo-preview" class="photo-preview" alt="Anteprima foto ricetta" style="display:none;">
+        <button type="button" class="btn-ghost btn-small" id="f-photo-edit-btn" style="display:none;">✂️ Ritaglia/ruota</button>
+      </div>
     </div>
 
     <div class="field">
@@ -526,7 +555,7 @@
       </div>
       <div class="field">
         <label>Unità</label>
-        <input type="text" id="d-unit" placeholder="es. pz, g, ml">
+        <input type="text" id="d-unit" placeholder="es. pz, g, ml" list="unit-suggestions">
       </div>
       <div class="field">
         <label>Avvisa sotto (facoltativo)</label>
@@ -623,7 +652,7 @@
         </div>
         <div class="field">
           <label>Unità</label>
-          <input type="text" id="dispensa-picker-unit" placeholder="es. pz, g, ml">
+          <input type="text" id="dispensa-picker-unit" placeholder="es. pz, g, ml" list="unit-suggestions">
         </div>
       </div>
       <div class="ingredients-actions" style="justify-content:space-between;margin-top:6px;">
@@ -767,6 +796,8 @@
     <img id="view-photo" class="view-photo" style="display:none;">
     <div style="font-size:13px;color:var(--ink-soft);" id="view-time"></div>
     <div id="view-tags" style="margin:4px 0;"></div>
+    <div id="view-allergens" style="margin:4px 0;"></div>
+    <div id="view-archived-note" class="pantry-caveat" style="display:none;margin:4px 0 0;">📦 Questa ricetta è archiviata — non compare nell'elenco principale.</div>
 
     <div class="last-made-row">
       <span id="view-last-made-text">Non ancora preparata</span>
@@ -777,6 +808,11 @@
       <button id="servings-minus">−</button>
       <span class="count"><span id="view-servings-count"></span> porzioni</span>
       <button id="servings-plus">+</button>
+    </div>
+
+    <div id="freezable-suggestion" class="pantry-caveat" style="display:none;margin:0 0 10px;">
+      ❄️ Questa ricetta si congela bene — considera di prepararne una porzione doppia e congelare il resto.
+      <button class="btn-ghost btn-small" id="double-servings-btn" style="margin-left:8px;">👯 Raddoppia le porzioni</button>
     </div>
 
     <ul id="view-ingredients"></ul>
@@ -828,6 +864,7 @@
       </div>
       <button class="btn-ghost" id="duplicate-recipe-btn">⧉ Duplica</button>
       <button class="btn-gold" id="cook-mode-btn">👩‍🍳 Modalità cucina</button>
+      <button class="btn-ghost" id="archive-toggle-btn">📦 Archivia</button>
       <div style="flex:1;"></div>
       <button class="btn-ghost" id="view-edit-btn">Modifica</button>
     </div>
@@ -882,6 +919,68 @@
     <div class="nutrition-summary" id="week-totals-grand" style="margin-top:10px;"></div>
   </div>
 </div>
+
+<!-- ============ AVVISO DI CONFERMA (usato prima delle azioni che non si possono annullare) ============ -->
+<div class="overlay" id="confirm-overlay">
+  <div class="modal confirm-modal">
+    <h2 id="confirm-title">Conferma</h2>
+    <p id="confirm-message" style="white-space:pre-line;line-height:1.5;"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn-ghost" id="confirm-cancel-btn">Annulla</button>
+      <div style="flex:1;"></div>
+      <button type="button" class="btn-gold" id="confirm-ok-btn">Conferma</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ RITAGLIO/ROTAZIONE FOTO ============ -->
+<div class="overlay" id="photo-crop-overlay">
+  <div class="modal photo-crop-modal">
+    <h2>✂️ Ritaglia o ruota la foto</h2>
+    <div class="panel-sub" style="margin:-4px 0 12px;">Trascina il riquadro per spostarlo, trascina un angolo per ridimensionarlo. "Ruota" gira l'immagine di 90° ad ogni tocco.</div>
+    <div class="photo-crop-stage" id="photo-crop-stage">
+      <img id="photo-crop-img" draggable="false" alt="">
+      <div class="photo-crop-box" id="photo-crop-box">
+        <div class="photo-crop-handle" data-handle="nw"></div>
+        <div class="photo-crop-handle" data-handle="ne"></div>
+        <div class="photo-crop-handle" data-handle="sw"></div>
+        <div class="photo-crop-handle" data-handle="se"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-ghost" id="photo-crop-rotate-btn">⟲ Ruota</button>
+      <button type="button" class="btn-ghost" id="photo-crop-reset-btn">Reimposta</button>
+      <div style="flex:1;"></div>
+      <button type="button" class="btn-ghost" id="photo-crop-cancel-btn">Annulla</button>
+      <button type="button" class="btn-gold" id="photo-crop-apply-btn">Applica</button>
+    </div>
+  </div>
+</div>
+
+<!-- Suggerimenti di unità di misura standard, per uniformare la scrittura tra Ricette, Dispensa
+     e Lista della spesa (es. preferire "g" a "gr", "cucchiai" a "cucchiaio" per quantità > 1).
+     Restano comunque campi di testo libero: queste sono solo proposte nel menu a tendina. -->
+<datalist id="unit-suggestions">
+  <option value="g"></option>
+  <option value="kg"></option>
+  <option value="ml"></option>
+  <option value="l"></option>
+  <option value="pz"></option>
+  <option value="cucchiaio"></option>
+  <option value="cucchiai"></option>
+  <option value="cucchiaino"></option>
+  <option value="cucchiaini"></option>
+  <option value="pizzico"></option>
+  <option value="tazza"></option>
+  <option value="tazze"></option>
+  <option value="fetta"></option>
+  <option value="fette"></option>
+  <option value="spicchio"></option>
+  <option value="spicchi"></option>
+  <option value="rametto"></option>
+  <option value="filetto"></option>
+  <option value="foglia"></option>
+</datalist>
 
 <!-- Banca dati nutrizionale CREA: deve caricarsi PRIMA dello script principale,
      perché quest'ultimo usa l'oggetto CreaDB e la funzione attachCreaAutocomplete. -->

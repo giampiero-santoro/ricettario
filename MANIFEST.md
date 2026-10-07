@@ -2,7 +2,7 @@
 
 Elenco di tutti i file che devono essere caricati insieme su GitHub perché il sito funzioni correttamente. Non tiene uno storico delle versioni precedenti — la cronologia delle modifiche è già in [CHANGELOG.md](CHANGELOG.md); questo file mostra solo **la situazione attuale**, e va sovrascritto ogni volta che cambia l'elenco dei file coinvolti.
 
-**Versione corrente: 3.35.0**
+**Versione corrente: 3.45.0**
 
 ## File essenziali (senza uno di questi il sito non parte, o parte con funzioni mancanti)
 
@@ -36,6 +36,7 @@ Elenco di tutti i file che devono essere caricati insieme su GitHub perché il s
 | `scripts/build_crea_data.py` | Rigenera `crea-alimenti.json` + `crea-meta.json` dal CSV CREA originale |
 | `scripts/build_crea_completo.py` | Rigenera `crea-alimenti-completo.json`, `crea-nutrienti-schema.json`, `crea-ricette.json` |
 | `source-data/` (se presente) | Dataset grezzo scaricato da Kaggle, tenuto solo per poter rigenerare i dati in futuro |
+| `tests/` | Suite di test automatici (Playwright) che verifica in un vero browser i flussi principali: ricette, dispensa, pianificazione/spesa, archiviazione/allergeni, menu mobile/modalità cucina. Vedi `tests/README.md` per come lanciarla. Non serve al sito pubblicato, solo a chi sviluppa |
 
 ## Come usarlo
 

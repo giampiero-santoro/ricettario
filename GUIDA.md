@@ -14,7 +14,7 @@ Questa guida spiega passo passo come usare tutte le funzioni del ricettario.
 8. [Valori nutrizionali della ricetta](#valori-nutrizionali-della-ricetta)
 9. [🌾 Valori Alimenti dal sito CREA](#valori-alimenti-dal-sito-crea)
 10. [🇮🇹 Ricette dal sito CREA](#ricette-dal-sito-crea)
-11. [Tag dietetici](#tag-dietetici)
+11. [Tag dietetici e allergeni](#tag-dietetici-e-allergeni)
 12. [Visualizzare e scalare le porzioni](#visualizzare-e-scalare-le-porzioni)
 13. [Ricerca, filtri ed esclusione ingredienti](#ricerca-filtri-ed-esclusione-ingredienti)
 14. [Cosa posso cucinare?](#cosa-posso-cucinare)
@@ -25,13 +25,14 @@ Questa guida spiega passo passo come usare tutte le funzioni del ricettario.
 19. [Backup: esportazione e importazione](#backup-esportazione-e-importazione)
 20. [Esportazione PDF](#esportazione-pdf)
 21. [Esportare e importare CSV](#esportare-e-importare-csv)
-22. [Modificare ed eliminare](#modificare-ed-eliminare)
+22. [Modificare, eliminare e archiviare](#modificare-eliminare-e-archiviare)
 23. [Dispensa](#dispensa)
-24. [Tema grafico](#tema-grafico)
-25. [Salvataggio dei dati](#salvataggio-dei-dati)
-26. [Salvataggio su un file a tua scelta (facoltativo)](#salvataggio-su-un-file-a-tua-scelta-facoltativo)
-27. [Dove vengono salvati e caricati i file](#dove-vengono-salvati-e-caricati-i-file)
-28. [Domande frequenti](#domande-frequenti)
+24. [Unità di misura](#unità-di-misura)
+25. [Tema grafico](#tema-grafico)
+26. [Salvataggio dei dati](#salvataggio-dei-dati)
+27. [Salvataggio su un file a tua scelta (facoltativo)](#salvataggio-su-un-file-a-tua-scelta-facoltativo)
+28. [Dove vengono salvati e caricati i file](#dove-vengono-salvati-e-caricati-i-file)
+29. [Domande frequenti](#domande-frequenti)
 
 ## ℹ️ Come funziona
 
@@ -41,11 +42,13 @@ Il pulsante **"ℹ️ Come funziona"** nel menu in alto apre una pagina introdut
 
 Apri il file `index.html` con un doppio click, oppure trascinalo in una finestra del browser. Non serve installare nulla né avere una connessione internet (a parte il primo caricamento dei font, che comunque non è obbligatorio per il funzionamento).
 
+Su schermo piccolo (telefono), la fila di pulsanti di navigazione in alto (Oggi, Ricettario, Pianificazione, Dispensa…) viene sostituita da un pulsante **"☰"**, che mostra sempre la vista in cui ti trovi e apre un menu a tendina con tutte le destinazioni quando lo tocchi. Il menu si chiude da solo dopo aver scelto una voce.
+
 ## Aggiungere una ricetta
 
 1. Premi **"+ Nuova ricetta"** in alto
 2. Compila nome, categoria, porzioni base e tempo totale
-3. Se vuoi, seleziona i **tag dietetici** pertinenti e carica una **foto** — viene ridimensionata e compressa automaticamente prima di essere salvata, per occupare meno spazio nel browser
+3. Se vuoi, seleziona i **tag dietetici** pertinenti e carica una **foto** — appena scelta si apre un piccolo editor per **ritagliarla e ruotarla** (utile per le foto scattate storte col cellulare, o per inquadrare meglio il piatto): trascina il riquadro dorato per spostarlo, trascina un angolo per ridimensionarlo, e **"⟲ Ruota"** gira l'immagine di 90° ad ogni tocco (**"Reimposta"** annulla rotazione e ritaglio e riparte dall'originale). Premi **"Applica"** per confermare, oppure **"Annulla"** per rinunciare alla foto appena scelta. Una volta salvata, **"✂️ Ritaglia/ruota"** accanto all'anteprima permette di ritoccarla di nuovo in qualsiasi momento. L'immagine finale viene comunque ridimensionata e compressa automaticamente, per occupare meno spazio nel browser
 4. Aggiungi gli **ingredienti** uno per uno. Se lo stesso ingrediente (nome e unità di misura) finisce per comparire due volte, al momento di salvare il ricettario te lo segnala e propone di unire le righe sommando le quantità
 5. Aggiungi i **passaggi** della preparazione (vedi sotto per le impostazioni robot facoltative)
 6. Scrivi eventuali **note personali**
@@ -121,13 +124,22 @@ Una vista dedicata per sfogliare, una per una, le 56 ricette ufficiali del Centr
 
 Sono entrambe vetrine di **sola consultazione** della fonte ufficiale, separate dal tuo Ricettario e dalla tua Dispensa: per personalizzare una ricetta o un alimento (note, foto, modifiche) importalo prima nel Ricettario o in Dispensa, e modificalo lì.
 
-## Tag dietetici
+## Tag dietetici e allergeni
 
-Nel modulo di modifica puoi selezionare uno o più tag: Vegetariano, Vegano, Senza glutine, Senza lattosio, Piccante. Compaiono nella scheda della ricetta e si possono usare come filtro nella lista (vedi sezione successiva).
+Nel modulo di modifica trovi due sezioni distinte, perché rispondono a domande diverse:
+
+- **Tag dietetici** — Vegetariano, Vegano, Senza glutine, Senza lattosio, Piccante — indicano **per chi** è adatta la ricetta (una scelta, non un'analisi degli ingredienti). Si possono usare come filtro nella lista (vedi sezione successiva).
+- **Allergeni contenuti** — i 14 allergeni a dichiarazione obbligatoria nell'UE (Glutine, Crostacei, Uova, Pesce, Arachidi, Soia, Latte, Frutta a guscio, Sedano, Senape, Semi di sesamo, Anidride solforosa e solfiti, Lupini, Molluschi) — indicano invece **cosa contiene davvero** la ricetta, da segnalare a chi la mangia. Sono facoltativi e vanno selezionati a mano in base agli ingredienti usati.
+
+Entrambi compaiono nella scheda della ricetta come etichette colorate (gli allergeni in rosso, sotto la scritta "⚠ Contiene:"). Nel pannello filtri avanzati puoi anche **escludere dalla lista le ricette che contengono uno o più allergeni** scelti, oltre a filtrare per tag dietetico.
 
 ## Visualizzare e scalare le porzioni
 
 Cliccando su una ricetta si apre la vista di lettura, con ingredienti, passaggi numerati e un controllo **+/−** per aumentare o diminuire le porzioni: le quantità si ricalcolano automaticamente in proporzione. Per le unità "a conteggio" — cucchiaio/cucchiai, cucchiaino/cucchiaini, pizzico/pizzichi, pezzo/pezzi, tazza/tazze, fetta/fette, spicchio/spicchi, rametto/rametti, filetto/filetti, foglia/foglie — quando il ricalcolo scende sotto l'unità intera, al posto del decimale compare la frazione da cucina più vicina (es. 2 cucchiai scalati a un quarto delle porzioni diventano "1/2 cucchiai" invece di "0.5"; se resta una parte intera, es. "1 e 1/2"). Per grammi, ml, litri e simili resta invece il numero decimale, più preciso per queste unità.
+
+### Porzione doppia e congelamento
+
+Nel modulo di modifica puoi spuntare **"❄️ Si congela bene"** per le ricette che si conservano bene in freezer (sughi, zuppe, polpette, lasagne…). Quando è attivo, nella vista della ricetta compare un avviso con il pulsante **"👯 Raddoppia le porzioni"**: un tocco e le quantità degli ingredienti si ricalcolano per il doppio delle porzioni indicate, così prepari una porzione in più da congelare senza dover ricalcolare nulla a mano. È una spunta manuale — valuta tu, ricetta per ricetta, se si presta davvero al congelamento.
 
 ## Ricerca, filtri ed esclusione ingredienti
 
@@ -173,7 +185,7 @@ Mentre la modalità cucina è aperta, il sito prova a **impedire allo schermo di
 
 ## Pianificazione settimanale
 
-La pianificazione è una vista separata dal ricettario: premi **"📅 Pianificazione"** in alto per aprirla.
+La pianificazione è una vista separata dal ricettario: premi **"📅 Pianificazione"** in alto per aprirla. Da qui puoi saltare subito alla Dispensa con il pulsante **"🥫 Dispensa"** in cima alla pagina (e viceversa, dalla Dispensa, **"📅 Pianificazione"** riporta qui), senza dover passare dal menu di navigazione in alto — comodo mentre decidi cosa cucinare e vuoi controllare al volo cosa hai già in casa.
 
 Puoi anche saltare la ricerca e pianificare al volo mentre guardi una ricetta: nella sua scheda, premi **"📅 Pianifica"** per scegliere giorno, fascia e orario facoltativo senza uscire dalla vista. Il pannello resta aperto dopo ogni aggiunta, così puoi assegnare la stessa ricetta a più giorni di seguito.
 
@@ -190,22 +202,22 @@ Puoi anche saltare la ricerca e pianificare al volo mentre guardi una ricetta: n
 - Clicca sul nome di una voce pianificata per aprirne la scheda: quelle con l'etichetta 🥫 aprono la scheda del prodotto in Dispensa, le altre la scheda della ricetta
 - **"✓"** su una voce pianificata la segna come consumata e prova ad aggiornare la Dispensa di conseguenza (chiede sempre conferma, mostrando cosa sta per cambiare):
   - per un pasto aggiunto **"dalla dispensa"**, se avevi indicato una quantità nella stessa unità di misura del prodotto, quella quantità viene tolta dal prodotto
-  - per un pasto da **ricetta**, il ricettario cerca tra i prodotti in Dispensa un nome identico agli ingredienti, oppure — se non c'è — un nome simile ma solo quando è candidato un unico prodotto (le quantità sono scalate in base a "per quante persone" impostato in Pianificazione), e toglie la quantità usata solo dove l'unità di misura coincide esattamente — altrimenti lascia il prodotto invariato e te lo segnala. Se i prodotti con un nome simile sono più di uno (es. "Farina 00" e "Farina integrale" per l'ingrediente "Farina"), non ne tocca nessuno e te li elenca entrambi, per lasciare a te la scelta
+  - per un pasto da **ricetta**, il ricettario cerca tra i prodotti in Dispensa un nome identico agli ingredienti, oppure — se non c'è — un nome simile ma solo quando è candidato un unico prodotto (le quantità sono scalate in base a "per quante persone" impostato in Pianificazione), e toglie la quantità usata dove l'unità di misura coincide o è equivalente (convertita automaticamente, es. ricetta in "g" e prodotto in "kg") — altrimenti lascia il prodotto invariato e te lo segnala. Se i prodotti con un nome simile sono più di uno (es. "Farina 00" e "Farina integrale" per l'ingrediente "Farina"), non ne tocca nessuno e te li elenca entrambi, per lasciare a te la scelta
   - una volta confermato, il segno di spunta resta acceso e accanto compare **"↺"**: lo tocchi per annullare, il che riporta il pasto a "da consumare" e ripristina in Dispensa (dove il prodotto esiste ancora) quanto era stato tolto
 - **"Svuota settimana"** cancella tutta la pianificazione, tutti i giorni compresi (chiede conferma) — prima di farlo, il ricettario salva automaticamente una copia come "settimana scorsa"
-- **"📋 Copia settimana scorsa"** ripristina quella copia al posto della pianificazione attuale (chiede conferma, perché la sovrascrive). Non è legata a un calendario reale: è semplicemente l'ultima pianificazione che avevi prima dell'ultima volta che hai premuto "Svuota settimana"
+- **"➕ Aggiungi settimana scorsa"** aggiunge quella copia alla pianificazione attuale, senza cancellare nulla di quello che hai già pianificato per questa settimana: le voci della settimana scorsa si sommano a quelle di oggi, giorno per giorno, e arrivano già segnate come "da consumare" (non ereditano la spunta ✓ che avevi messo). Non è legata a un calendario reale: è semplicemente l'ultima pianificazione che avevi prima dell'ultima volta che hai premuto "Svuota settimana". Se lo premi più volte, le voci si aggiungono ogni volta — usalo quindi una volta sola, o elimina a mano i doppioni che non ti servono
 
 ## Lista della spesa
 
 Puoi generare la lista della spesa a tre livelli diversi, a seconda di cosa ti serve in quel momento:
 
-- **Per l'intera settimana pianificata**: nella vista Pianificazione, imposta prima **"Per quante persone stai pianificando?"** — le quantità verranno scalate di conseguenza rispetto alle porzioni base di ogni ricetta — poi premi **"🛒 Lista della spesa (settimana)"**. Il ricettario somma gli ingredienti di tutte le ricette pianificate nei sette giorni, raggruppandoli per nome e unità. I prodotti aggiunti dalla Dispensa non vengono conteggiati, dato che li hai già in casa. Compaiono anche gli ingredienti segnalati come mancanti dalla Dispensa quando hai pianificato una ricetta (etichetta "dalla dispensa"), anche se per questa settimana non hai ripianificato quella ricetta — restano come promemoria finché non li spunti, oppure finché un ingrediente con lo stesso nome non compare già tra quelli di un'altra ricetta pianificata per la settimana in corso
+- **Per l'intera settimana pianificata**: nella vista Pianificazione, imposta prima **"Per quante persone stai pianificando?"** — le quantità verranno scalate di conseguenza rispetto alle porzioni base di ogni ricetta — poi premi **"🛒 Lista della spesa (settimana)"**. Il ricettario somma gli ingredienti di tutte le ricette pianificate nei sette giorni, raggruppandoli per nome e unità. I prodotti aggiunti dalla Dispensa non vengono conteggiati, dato che li hai già in casa. Compaiono anche gli ingredienti segnalati come mancanti dalla Dispensa quando hai pianificato una ricetta (etichetta "dalla dispensa"), anche se per questa settimana non hai ripianificato quella ricetta — restano come promemoria finché non li spunti, oppure finché un ingrediente con lo stesso nome non compare già tra quelli di un'altra ricetta pianificata per la settimana in corso. Accanto al pulsante compare un piccolo numero (es. "· 7") con quante voci ci sarebbero già da comprare, così non serve aprire la lista solo per scoprire se manca qualcosa
 - **Per un singolo giorno**: nella vista Pianificazione, apri il giorno che ti interessa con le linguette o le frecce ‹ ›, poi premi **"🛒 Lista della spesa del giorno"** sotto al titolo del giorno. Include solo le ricette assegnate a quel giorno (scalate sempre in base a "per quante persone"), senza i promemoria dalla Dispensa, che non sono legati a un giorno preciso
 - **Per una singola ricetta**: apri la ricetta e premi **"🛒 Lista della spesa"** nella sua scheda. Include solo gli ingredienti di quella ricetta, scalati alle porzioni che stai visualizzando in quel momento (indipendenti da "per quante persone" della Pianificazione)
 
-In tutti e tre i casi si apre la stessa finestra: gli ingredienti sono raggruppati per **reparto** (frutta, verdura, pasta e cereali, latticini, ecc. — gli stessi reparti della Dispensa), nell'ordine in cui si trovano di solito al supermercato, per spuntarli più rapidamente mentre fai la spesa. Spunta gli ingredienti man mano che li acquisti ed ognuno viene anche aggiunto alla Dispensa (o la sua quantità aumentata, se già presente con la stessa unità di misura) — un piccolo avviso conferma quanti prodotti sono stati aggiornati. Per quelli con l'etichetta "dalla dispensa" (presenti solo nella lista della settimana), spuntarli li toglie anche definitivamente dal promemoria. Togliere la spunta non annulla l'aggiornamento in Dispensa. Lo stato delle spunte resta **salvato per nome ingrediente**: se rigeneri la lista (es. dopo aver cambiato la pianificazione), ciò che avevi già spuntato resta spuntato. Premi **"⬇ Esporta PDF"** per scaricarla come file.
+In tutti e tre i casi si apre la stessa finestra: gli ingredienti sono raggruppati per **reparto** (frutta, verdura, pasta e cereali, latticini, ecc. — gli stessi reparti della Dispensa), nell'ordine in cui si trovano di solito al supermercato, per spuntarli più rapidamente mentre fai la spesa. Spunta gli ingredienti man mano che li acquisti ed ognuno viene anche aggiunto alla Dispensa (o la sua quantità aumentata, se già presente con la stessa unità di misura o una equivalente) — un piccolo avviso conferma quanti prodotti sono stati aggiornati, con un link **"Vedi Dispensa →"** per passare subito a controllarla, utile a spesa finita. Per quelli con l'etichetta "dalla dispensa" (presenti solo nella lista della settimana), spuntarli li toglie anche definitivamente dal promemoria. Togliere la spunta non annulla l'aggiornamento in Dispensa. Lo stato delle spunte resta **salvato per nome ingrediente**: se rigeneri la lista (es. dopo aver cambiato la pianificazione), ciò che avevi già spuntato resta spuntato. Premi **"⬇ Esporta PDF"** per scaricarla come file.
 
-Ogni ingrediente che compare più volte (anche da ricette diverse, se pianifichi più ricette nella stessa lista) viene sommato in un'unica riga, purché il nome e l'unità di misura coincidano esattamente.
+Ogni ingrediente che compare più volte (anche da ricette diverse, se pianifichi più ricette nella stessa lista) viene sommato in un'unica riga, purché il nome coincida e le unità siano uguali o equivalenti (vedi [Unità di misura](#unità-di-misura)) — altrimenti resta su righe separate.
 
 **Controllo incrociato con la Dispensa**: se un ingrediente della lista corrisponde a un prodotto che hai già segnato in Dispensa, sotto la riga compare un avviso. Il ricettario cerca prima un prodotto con lo stesso nome; se non lo trova, prova anche una corrispondenza più elastica come quella di "Cosa posso cucinare?" (utile per varianti dello stesso ingrediente, es. "Farina" nella ricetta e "Farina 00" in Dispensa) — ma solo quando è candidato un unico prodotto: se ce ne sono più di uno possibile, ti vengono elencati ma senza sottrazione automatica, per non rischiare di sbagliare
 - Se la quantità in Dispensa è nella stessa unità di misura (oppure in un'unità equivalente convertibile automaticamente: grammi/chilogrammi, millilitri/centilitri/litri) compare **"Sottrai dalla lista"**: un tocco toglie quella quantità da quella da acquistare, così compri solo quello che ti manca davvero. Se quello che hai in Dispensa basta o avanza, la riga si aggiorna con "già in Dispensa" e la casella si disabilita, perché non serve comprarne altro
@@ -226,6 +238,7 @@ Tutte le funzioni di questa sezione e della prossima si trovano sotto il menu **
 - Dalla vista di una ricetta, il menu **"⬇ Esporta ▾"** offre **"⬇ Esporta PDF"** per scaricarla come file (con ingredienti già scalati alle porzioni che stai visualizzando)
 - Dalla lista della spesa (settimana, giorno o singola ricetta), **"⬇ Esporta PDF"** scarica la lista come file
 - Dalla vista Pianificazione, **"⬇ Esporta PDF settimana"** scarica un file con il piano di tutti i giorni insieme alla lista della spesa aggregata
+- Per stampare o portare con te **tutto il ricettario**: menu **"📦 Backup e CSV" → "📖 Esporta tutto il ricettario (PDF)"**. Scarica un unico file con un indice iniziale (i nomi di tutte le ricette, nell'ordine in cui le hai ordinate nell'elenco) seguito da ogni ricetta su una pagina nuova, alle sue porzioni base, con ingredienti, passaggi, valori nutrizionali e note come nell'esportazione di una singola ricetta. Le ricette **archiviate** restano escluse, come nel resto del sito
 - Il PDF è generato interamente dal ricettario stesso (nessun servizio esterno): supporta più pagine e le lettere accentate italiane; eventuali emoji o simboli non standard nel testo vengono sostituiti con "?"
 - Non è più disponibile la stampa diretta dal browser (la finestra "Stampa" di sistema): su alcuni dispositivi, in particolare mobile, produceva un foglio vuoto. L'esportazione PDF sostituisce completamente questa funzione ed è più affidabile, perché genera un file scaricabile senza passare dalla finestra di stampa
 
@@ -233,16 +246,27 @@ Tutte le funzioni di questa sezione e della prossima si trovano sotto il menu **
 
 Oltre al backup JSON completo, puoi scambiare le ricette in formato CSV (una riga per ricetta), comodo per aprirle in Excel o Fogli Google:
 
-- **"⬇ Esporta CSV"** scarica un file `.csv` con tutte le tue ricette: nome, categoria, porzioni, tempo, tag, ingredienti e passaggi sono ciascuno in una colonna. Dentro la stessa cella, più ingredienti o passaggi sono separati da " | "
+- **"⬇ Esporta CSV"** scarica un file `.csv` con tutte le tue ricette: nome, categoria, porzioni, tempo, tag, allergeni, ingredienti e passaggi sono ciascuno in una colonna. Dentro la stessa cella, più ingredienti o passaggi sono separati da " | "
 - **"⬆ Importa CSV"** legge un file con lo stesso formato (le colonne Nome, Ingredienti e Passaggi sono obbligatorie) e aggiunge le ricette che non hai già (il confronto è per nome). Per quelle che invece corrispondono a un nome già presente, ti viene chiesto una volta se sostituirle con la versione dal CSV o lasciarle come sono — se scegli di sostituirle, foto, preferita e cronologia della ricetta esistente restano invariate, dato che il CSV non le contiene
 - Il riconoscimento di quantità/unità negli ingredienti e delle impostazioni robot nei passaggi è automatico ma approssimativo, soprattutto se modifichi il CSV a mano: controlla sempre le ricette importate
 
-## Modificare ed eliminare
+## Modificare, eliminare e archiviare
 
 - Dalla vista di una ricetta, **"Modifica"** per aprirla in modalità editing
 - **"⧉ Duplica"** crea una copia della ricetta (con "(copia)" nel nome) e la apre subito in modifica, senza toccare l'originale — comodo per creare varianti, es. una versione vegetariana, senza riscrivere tutto da capo
 - **"Elimina ricetta"** la rimuove definitivamente (chiede conferma) e la toglie automaticamente anche dalla pianificazione settimanale
 - Per eliminarne **più di una insieme**, premi **"☑️ Seleziona"** nella barra in alto al Ricettario: ogni ricetta mostra una casella, tocca quelle che vuoi eliminare (si evidenziano con un bordo dorato) e premi **"🗑 Elimina selezionate"**. Trovi anche **"Seleziona tutte"** — che seleziona le ricette attualmente visibili, cioè quelle che passano ricerca e filtri, non l'intera raccolta — e **"Annulla"** per uscire senza eliminare nulla. Viene chiesta conferma con l'elenco dei nomi, e anche qui le ricette eliminate spariscono dalla pianificazione
+
+Tutte le azioni che non si possono annullare (eliminare una o più ricette, un prodotto dalla Dispensa, svuotare la settimana, chiudere un modulo con modifiche non salvate…) mostrano un avviso dedicato, non il riquadro generico del browser: spiega cosa sta per succedere e, dove utile, come recuperare i dati (es. "Svuota settimana" ricorda che una copia resta disponibile con "➕ Aggiungi settimana scorsa"). Il pulsante di conferma è rosso per le eliminazioni vere e proprie, dorato per le altre conferme.
+
+### Archiviare una ricetta (nasconderla senza eliminarla)
+
+Se c'è una ricetta che non prepari più spesso ma non vuoi perdere (una versione superata, una ricetta stagionale, un esperimento), puoi **archiviarla** invece di eliminarla: dalla vista della ricetta premi **"📦 Archivia"**. La ricetta resta salvata con tutti i suoi dati, ma:
+
+- non compare più nell'elenco principale del Ricettario, nella ricerca o nei filtri
+- non viene più proposta da "Cosa posso cucinare?"
+
+Per ritrovarla, premi **"📦 Mostra archiviate"** nella barra dei filtri: l'elenco mostra solo le ricette archiviate, con un avviso dedicato nella loro scheda. Da lì puoi riaprirla e premere **"📂 Disarchivia"** per farla tornare visibile come prima, oppure eliminarla definitivamente se non serve più. Premi di nuovo "📂 Mostra attive" per tornare all'elenco normale.
 
 ## Dispensa
 
@@ -263,6 +287,19 @@ Un prodotto della Dispensa si può anche pianificare direttamente come pasto nel
 I prodotti della Dispensa sono inclusi nel backup JSON, insieme alle ricette e alla pianificazione.
 
 Lo scanner da fotocamera richiede l'autorizzazione del browser e funziona solo in pagine servite in HTTPS (GitHub Pages lo è di default) — se la fotocamera non è disponibile, resta sempre utilizzabile il campo per incollare il codice a barre a mano.
+
+## Unità di misura
+
+I campi "Unità" (negli ingredienti di una ricetta, in Dispensa, nella lista della spesa) restano testo libero — puoi scrivere quello che vuoi — ma ora suggeriscono, in un menu a tendina, un elenco di unità standard: **g, kg, ml, l, pz, cucchiaio/cucchiai, cucchiaino/cucchiaini, pizzico, tazza/tazze, fetta/fette, spicchio/spicchi, rametto, filetto, foglia**. Usarle aiuta a tenere tutto coerente tra Ricette, Dispensa e Lista della spesa.
+
+Soprattutto, il sito ora **riconosce come equivalenti** le forme più comuni della stessa unità, anche se scritte in modo diverso — per peso e volume con la conversione numerica corretta (es. "500 g" e "0,5 kg" sono la stessa quantità), per le unità a conteggio tra singolare e plurale (es. "cucchiaio" e "cucchiai"):
+
+- Nella **lista della spesa**, due ricette che usano lo stesso ingrediente con unità diverse ma equivalenti (una in grammi, l'altra in chilogrammi) vengono **sommate in un'unica riga**, invece di comparire separate
+- Quando **spunti un ingrediente** della lista della spesa, la quantità si somma correttamente a quella già presente in Dispensa anche se le unità sono scritte in modo diverso
+- Quando segni un pasto come **"consumato"**, la quantità tolta dalla Dispensa viene convertita nell'unità del prodotto, invece di essere ignorata per una differenza solo di scrittura
+- In **"Cosa posso cucinare?"**, il confronto "quantità scarse" riconosce le stesse equivalenze
+
+Questo riconoscimento resta comunque limitato alle unità elencate sopra (più qualche sinonimo: gr/grammo/grammi, kg/kilo/chilo, ml/millilitro, l/litro/lt…): un'unità del tutto diversa o inventata (es. "confezione", "vasetto") resta un'unità a sé, senza conversioni automatiche non affidabili.
 
 ## Tema grafico
 

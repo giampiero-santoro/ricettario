@@ -158,6 +158,14 @@
   .masthead .sub{font-family:var(--font-script);font-style:italic;font-size:27px;color:var(--sub-color);text-shadow:0 2px 6px var(--h1-shadow);}
 
   /* ---------- Navigazione viste ---------- */
+  /* Barra con il pulsante "hamburger": nascosta di default, compare solo sotto i 760px
+     (vedi media query più sotto), dove sostituisce la fila di pulsanti con un menu a tendina. */
+  .mobile-nav-bar{display:none;}
+  .mobile-nav-bar button{
+    width:100%; text-align:left; font-family:var(--font-testo); font-weight:600; font-size:16px;
+    background:var(--nav-bg); border:1px solid var(--nav-border); color:var(--nav-text);
+    border-radius:10px; padding:12px 16px; display:flex; align-items:center; gap:8px;
+  }
   .view-nav{display:flex;gap:10px;justify-content:center;max-width:960px;margin:0 auto 26px;flex-wrap:wrap;}
   .view-nav-btn{
     font-family:var(--font-testo);
@@ -173,6 +181,22 @@
     background:linear-gradient(180deg,var(--gold-bright),var(--gold) 60%,var(--gold-deep));
     color:var(--nav-active-text); border-color:transparent;
     box-shadow:0 6px 18px var(--nav-active-shadow), inset 0 1px 0 rgba(255,255,255,0.4);
+  }
+  /* Sotto i 760px: la fila di 7 pulsanti (uno molto lungo) occuperebbe troppo spazio in
+     verticale e sarebbe scomoda da scorrere col pollice. Si passa a un pulsante "☰" che apre
+     un menu a tendina a tutta larghezza, con lo stesso elenco di destinazioni ma impilate e
+     con un'area di tocco più generosa. */
+  @media (max-width:760px){
+    .mobile-nav-bar{display:block; max-width:960px; margin:0 auto 14px;}
+    /* In flusso normale, subito sotto il pulsante ☰ (di cui è "fratello" nel markup):
+       niente overlay/posizionamento assoluto, resta semplice e non copre altro contenuto. */
+    .view-nav{
+      display:none; flex-direction:column; gap:8px; justify-content:flex-start;
+      max-width:960px; background:var(--parchment); border:1px solid var(--line);
+      border-radius:12px; padding:10px; box-shadow:0 8px 20px rgba(0,0,0,0.12); margin:0 auto 20px;
+    }
+    .view-nav.open{display:flex;}
+    .view-nav-btn{width:100%; text-align:left; border-radius:8px; padding:13px 16px; font-size:16px;}
   }
 
   /* ---------- Libro / pergamena ---------- */
@@ -378,6 +402,10 @@
   .card .missing-list.scarso{color:var(--gold-deep);}
   .card .missing-list b{color:var(--red);}
   .pantry-caveat{font-size:var(--fs-xxs);font-style:italic;color:var(--ink-soft);margin:-2px 0 6px;}
+  #freezable-suggestion{align-items:center;flex-wrap:wrap;gap:6px;}
+  #freezable-suggestion .btn-small{font-style:normal;}
+  .link-btn{background:none;border:none;padding:0;margin:0;color:var(--gold-deep);text-decoration:underline;font:inherit;font-weight:600;cursor:pointer;}
+  .link-btn:hover{color:var(--brass);}
 
   /* ---------- Overlay e modali ---------- */
   .overlay{
@@ -394,6 +422,11 @@
     animation:modalIn .25s ease;
   }
   .modal h2{margin-top:0;font-size:28px;color:var(--ink);border-bottom:1px solid var(--line);padding-bottom:10px;}
+  #confirm-overlay{z-index:70;align-items:center;}
+  .confirm-modal{max-width:440px;}
+  .confirm-modal h2{font-size:22px;}
+  .confirm-modal #confirm-message{color:var(--ink-soft);font-size:var(--fs-md);margin:0 0 4px;}
+  .confirm-modal .btn-gold.btn-danger-action{background:linear-gradient(180deg,#c96a5a,var(--red) 60%,#8c3030);border:1px solid #8c3030;color:#fff;box-shadow:0 3px 0 #8c3030, 0 8px 18px rgba(156,52,52,0.35);}
   .field{margin-bottom:14px;}
   .field label{display:block;font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.08em;color:var(--brass);margin-bottom:5px;font-weight:600;}
   .field input, .field select, .field textarea{width:100%;}
@@ -517,6 +550,28 @@
   .step-settings .mini input, .step-settings .mini select{width:72px;padding:5px 6px;font-size:var(--fs-md);}
 
   .photo-preview{max-width:160px;max-height:110px;border-radius:6px;border:1px solid var(--line);display:block;margin-top:8px;box-shadow:0 4px 10px rgba(44,29,13,.12);}
+
+  /* Ritaglio/rotazione foto: un riquadro trascinabile e ridimensionabile sopra l'anteprima
+     dell'immagine, per scegliere l'area da mantenere senza strumenti esterni. */
+  .photo-crop-modal{max-width:520px;}
+  .photo-crop-stage{
+    position:relative; max-width:100%; margin:0 auto 16px; user-select:none;
+    display:flex; align-items:center; justify-content:center; background:#1a1410; border-radius:8px;
+    touch-action:none; overflow:hidden;
+  }
+  .photo-crop-stage img{display:block; max-width:100%; max-height:60vh; pointer-events:none;}
+  .photo-crop-box{
+    position:absolute; border:2px solid var(--gold-bright); box-shadow:0 0 0 2000px rgba(0,0,0,.55);
+    cursor:move; touch-action:none;
+  }
+  .photo-crop-handle{
+    position:absolute; width:20px; height:20px; background:var(--gold-bright); border:2px solid #fff;
+    border-radius:50%; touch-action:none;
+  }
+  .photo-crop-handle[data-handle="nw"]{top:-10px; left:-10px; cursor:nwse-resize;}
+  .photo-crop-handle[data-handle="ne"]{top:-10px; right:-10px; cursor:nesw-resize;}
+  .photo-crop-handle[data-handle="sw"]{bottom:-10px; left:-10px; cursor:nesw-resize;}
+  .photo-crop-handle[data-handle="se"]{bottom:-10px; right:-10px; cursor:nwse-resize;}
 
   .modal-actions{display:flex;justify-content:space-between;margin-top:20px;gap:10px;flex-wrap:wrap;}
 
@@ -680,6 +735,11 @@
     border:1px solid var(--brass);color:var(--brass);border-radius:12px;padding:2px 10px;font-size:var(--fs-xs);margin-right:6px;
     box-shadow:0 1px 3px rgba(44,29,13,.08);
   }
+  .view-tag-chip.allergen-chip{
+    background:linear-gradient(180deg,#f7dede,#f0c3c3);
+    border:1px solid #a85a5a;color:#8c3030;
+  }
+  .allergen-checks label{color:inherit;}
 
   .shopping-list-items{list-style:none;padding:0;margin:0;}
   .shopping-list-items li{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:6px 0;border-bottom:1px dotted var(--line);font-size:15px;}

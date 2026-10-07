@@ -77,6 +77,13 @@
   const DAYS = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];
   const DEFAULT_MEALTYPES = ['Colazione','Pranzo','Spuntino','Cena'];
   const TAG_OPTIONS = ['Vegetariano','Vegano','Senza glutine','Senza lattosio','Piccante'];
+  // I 14 allergeni "a dichiarazione obbligatoria" nell'UE (Reg. 1169/2011), usati qui per
+  // segnalare cosa CONTIENE una ricetta — distinto dai tag dietetici sopra, che indicano
+  // invece per chi è adatta (es. "Senza glutine" come scelta, non come elenco ingredienti).
+  const ALLERGEN_OPTIONS = [
+    'Glutine','Crostacei','Uova','Pesce','Arachidi','Soia','Latte','Frutta a guscio',
+    'Sedano','Senape','Semi di sesamo','Anidride solforosa e solfiti','Lupini','Molluschi'
+  ];
 
   let recipes = [];
   let weekPlan = {}; // { 'Lunedì': [ {id, recipeId, mealType, time}, ... ], ... }
@@ -104,11 +111,13 @@
   let sortMode = 'name-asc';
   let excludeItems = [];
   let activeTagFilters = new Set();
+  let activeAllergenExclusions = new Set();
   let favoritesOnly = false;
   let pressureOnly = false;
   let robotOnly = false;
   let traditionalOnly = false;
   let dispensaLowStockOnly = false;
+  let showArchivedOnly = false;
 
   // cooking mode state
   let cookRecipe = null;
@@ -533,7 +542,7 @@
   function seedData(){
     return [{
       id: cryptoId(), name: 'Carbonara risottata', category: 'Primi', servings: 3, time: 15,
-      favorite:false, photo:'', lastMade:null, tags:[], timesMade:0, cookerType:'',
+      favorite:false, photo:'', lastMade:null, tags:[], allergens:['Glutine','Uova','Latte'], archived:false, freezable:false, timesMade:0, cookerType:'',
       ingredients: [
         {name:'Spaghetti', qty:300, unit:'g'}, {name:'Guanciale', qty:120, unit:'g'},
         {name:'Uova (tuorli)', qty:3, unit:''}, {name:'Pecorino grattugiato', qty:60, unit:'g'},
@@ -559,6 +568,9 @@
     if(r.photo === undefined) r.photo = '';
     if(r.lastMade === undefined) r.lastMade = null;
     if(!Array.isArray(r.tags)) r.tags = [];
+    if(!Array.isArray(r.allergens)) r.allergens = [];
+    if(r.archived === undefined) r.archived = false;
+    if(r.freezable === undefined) r.freezable = false;
     if(r.timesMade === undefined) r.timesMade = r.lastMade ? 1 : 0;
     if(r.cookerType === undefined) r.cookerType = '';
     if(!Array.isArray(r.steps)) r.steps = [];
@@ -581,6 +593,41 @@
   function escapeHtml(s){ const d=document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
   function escapeAttr(s){ return (s ?? '').toString().replace(/"/g,'&quot;'); }
   function normalize(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(); }
+
+  // ---------- Avviso di conferma (al posto del confirm() nativo del browser, per le azioni
+  // che non si possono annullare: pi\u00f9 leggibile su pi\u00f9 righe e visivamente pi\u00f9 "pesante"
+  // quando danger \u00e8 true, invece di un avviso identico per qualunque tipo di conferma) ----------
+  function confirmDialog(opts){
+    const { title, message, confirmText, cancelText, danger } = (typeof opts === 'string') ? { message: opts } : opts;
+    return new Promise(resolve=>{
+      const overlay = document.getElementById('confirm-overlay');
+      document.getElementById('confirm-title').textContent = title || (danger ? 'Conferma eliminazione' : 'Conferma');
+      document.getElementById('confirm-message').textContent = message || '';
+      const okBtn = document.getElementById('confirm-ok-btn');
+      const cancelBtn = document.getElementById('confirm-cancel-btn');
+      okBtn.textContent = confirmText || (danger ? 'Elimina' : 'Conferma');
+      cancelBtn.textContent = cancelText || 'Annulla';
+      okBtn.classList.toggle('btn-danger-action', !!danger);
+      function cleanup(result){
+        overlay.classList.remove('active');
+        okBtn.removeEventListener('click', onOk);
+        cancelBtn.removeEventListener('click', onCancel);
+        overlay.removeEventListener('click', onBackdrop);
+        document.removeEventListener('keydown', onKeydown);
+        resolve(result);
+      }
+      function onOk(){ cleanup(true); }
+      function onCancel(){ cleanup(false); }
+      function onBackdrop(e){ if(e.target === overlay) cleanup(false); }
+      function onKeydown(e){ if(e.key === 'Escape') cleanup(false); }
+      okBtn.addEventListener('click', onOk);
+      cancelBtn.addEventListener('click', onCancel);
+      overlay.addEventListener('click', onBackdrop);
+      document.addEventListener('keydown', onKeydown);
+      overlay.classList.add('active');
+      okBtn.focus();
+    });
+  }
 
   // ---------- List rendering ----------
   const listEl = document.getElementById('recipe-list');
@@ -707,8 +754,6 @@
     if(added) saveShoppingExtra();
   }
 
-  function unitsMatch(a, b){ return normalize(a||'') === normalize(b||''); }
-
   // Cerca in Dispensa un prodotto che corrisponda a un ingrediente per nome. Prova prima un nome
   // identico (il più affidabile per agire in automatico, es. sottrarre una quantità); se non c'è,
   // una corrispondenza più elastica come quella di "Cosa posso cucinare?" — ma solo se il candidato
@@ -729,8 +774,10 @@
     return { match: null, isApprox: false, ambiguous: [] };
   }
 
-  // Fattori di conversione verso un'unità di base (grammi per il peso, millilitri per il volume),
-  // per confrontare quantità anche quando le unità sono scritte in modo diverso ma equivalenti.
+  // Fattori di conversione verso un'unità di base (grammi per il peso, millilitri per il volume,
+  // 1 per le unità "a conteggio"), per confrontare e somm are quantità anche quando le unità sono
+  // scritte in modo diverso ma equivalenti (es. "g" e "grammi", oppure "cucchiaio" e "cucchiai",
+  // singolare/plurale della stessa unità).
   const UNIT_BASE_FACTOR = {
     g:1, gr:1, grammo:1, grammi:1,
     kg:1000, kilo:1000, kili:1000, chilo:1000, chili:1000, chilogrammo:1000, chilogrammi:1000,
@@ -738,14 +785,57 @@
     ml:1, millilitro:1, millilitri:1,
     cl:10, centilitro:10, centilitri:10,
     l:1000, lt:1000, litro:1000, litri:1000,
+    // Unità "a conteggio": nessuna conversione numerica tra loro, solo singolare/plurale
+    // (e qualche abbreviazione comune) della stessa unità, quindi fattore 1 su tutte.
+    cucchiaio:1, cucchiai:1,
+    cucchiaino:1, cucchiaini:1,
+    pizzico:1, pizzichi:1,
+    pezzo:1, pezzi:1, pz:1,
+    tazza:1, tazze:1,
+    fetta:1, fette:1,
+    spicchio:1, spicchi:1,
+    rametto:1, rametti:1,
+    filetto:1, filetti:1,
+    foglia:1, foglie:1,
   };
   const UNIT_DIMENSION = {
     g:'peso', gr:'peso', grammo:'peso', grammi:'peso', kg:'peso', kilo:'peso', kili:'peso',
     chilo:'peso', chili:'peso', chilogrammo:'peso', chilogrammi:'peso', mg:'peso', milligrammo:'peso', milligrammi:'peso',
     ml:'volume', millilitro:'volume', millilitri:'volume', cl:'volume', centilitro:'volume', centilitri:'volume',
     l:'volume', lt:'volume', litro:'volume', litri:'volume',
+    // Ogni unità a conteggio è la sua stessa "dimensione": cucchiai e cucchiaini, per
+    // esempio, non sono la stessa cosa e non vanno confusi, ma cucchiaio/cucchiai sì.
+    cucchiaio:'cucchiaio', cucchiai:'cucchiaio',
+    cucchiaino:'cucchiaino', cucchiaini:'cucchiaino',
+    pizzico:'pizzico', pizzichi:'pizzico',
+    pezzo:'pezzo', pezzi:'pezzo', pz:'pezzo',
+    tazza:'tazza', tazze:'tazza',
+    fetta:'fetta', fette:'fetta',
+    spicchio:'spicchio', spicchi:'spicchio',
+    rametto:'rametto', rametti:'rametto',
+    filetto:'filetto', filetti:'filetto',
+    foglia:'foglia', foglie:'foglia',
   };
-  // Converte una quantità da un'unità nota a un'altra della stessa grandezza (es. kg -> g, l -> ml).
+  // Forma "da mostrare" di ogni unità riconosciuta, in base alla quantità (singolare per 1,
+  // plurale altrimenti) — usata quando si somma una quantità in un'unità comune per la lista
+  // della spesa, per scegliere un'etichetta leggibile invece di ripetere l'unità del primo
+  // ingrediente trovato.
+  // (peso e volume non hanno bisogno di voci qui: la scelta tra g/kg e ml/l è automatica,
+  // vedi displayUnitForGroup)
+  const UNIT_DISPLAY_FORMS = {
+    cucchiaio: {1:'cucchiaio', many:'cucchiai'},
+    cucchiaino: {1:'cucchiaino', many:'cucchiaini'},
+    pizzico: {1:'pizzico', many:'pizzichi'},
+    pezzo: {1:'pezzo', many:'pezzi'},
+    tazza: {1:'tazza', many:'tazze'},
+    fetta: {1:'fetta', many:'fette'},
+    spicchio: {1:'spicchio', many:'spicchi'},
+    rametto: {1:'rametto', many:'rametti'},
+    filetto: {1:'filetto', many:'filetti'},
+    foglia: {1:'foglia', many:'foglie'},
+  };
+  // Converte una quantità da un'unità nota a un'altra equivalente (stessa grandezza per peso/volume,
+  // es. kg -> g, l -> ml; singolare/plurale per le unità a conteggio, es. cucchiaio -> cucchiai).
   // Restituisce null se le due unità non sono equivalenti o non sono tra quelle riconosciute:
   // in quel caso la conversione resta manuale, non essendo affidabile farla in automatico.
   function convertQty(qty, fromUnit, toUnit){
@@ -756,6 +846,18 @@
     if(UNIT_DIMENSION[from] !== UNIT_DIMENSION[to]) return null;
     return qty * fromFactor / toFactor;
   }
+  // Gruppo "semantico" di un'unità (peso, volume, o il nome canonico di un'unità a conteggio),
+  // usato per raggruppare/confrontare unità scritte in modo diverso ma equivalenti. Per un'unità
+  // non riconosciuta (es. "confezione", "lattina"...) ritorna il testo normalizzato così com'è:
+  // resta un gruppo a sé, senza inventare equivalenze non affidabili.
+  function unitGroupKey(unit){
+    const u = normalize(unit);
+    return UNIT_DIMENSION[u] || u;
+  }
+  // Due unità sono "equivalenti" se convertibili l'una nell'altra (stessa grandezza per peso/volume,
+  // o stessa unità a conteggio in singolare/plurale) — usata per confrontare un'unità scritta nella
+  // ricetta/pianificazione con quella usata in Dispensa, che può differire solo nella forma.
+  function unitsMatch(a, b){ return convertQty(1, a, b) !== null; }
 
   // Segna un pasto pianificato come consumato: se possibile, scala la quantità corrispondente
   // in Dispensa. Per i pasti "dalla dispensa" il collegamento è diretto ed esatto; per i pasti da
@@ -767,23 +869,27 @@
       if(!it){ alert('Il prodotto collegato non è più in Dispensa.'); return; }
       const amount = parseFloat(entry.qty);
       const currentQty = parseFloat(it.qty);
-      const canScale = entry.qty && !isNaN(amount) && unitsMatch(it.unit, entry.unit) && !isNaN(currentQty);
+      // Converte la quantità del pasto nell'unità usata in Dispensa, così "0,5 kg" nel pasto e
+      // "g" in Dispensa (o "cucchiaio"/"cucchiai") vengono riconosciuti come la stessa unità.
+      const amountInItUnit = !isNaN(amount) ? convertQty(amount, entry.unit, it.unit) : null;
+      const canScale = entry.qty && !isNaN(amount) && amountInItUnit !== null && !isNaN(currentQty);
       let msg;
       if(canScale){
-        const nextQty = Math.round(Math.max(0, currentQty - amount) * 100) / 100;
+        const nextQty = Math.round(Math.max(0, currentQty - amountInItUnit) * 100) / 100;
         msg = `Segnare "${it.name}" come consumato e togliere ${roundNice(amount)} ${entry.unit || ''} dalla Dispensa? (restano ${roundNice(nextQty)} ${it.unit || ''})`;
       }else{
         const reason = !entry.qty ? 'non avevi indicato una quantità per questo pasto'
-          : (!unitsMatch(it.unit, entry.unit) ? `l'unità del pasto ("${entry.unit || '—'}") non coincide con quella in Dispensa ("${it.unit || '—'}")`
+          : (amountInItUnit === null ? `l'unità del pasto ("${entry.unit || '—'}") non coincide con quella in Dispensa ("${it.unit || '—'}")`
           : 'in Dispensa non è indicata una quantità di partenza');
         msg = `Segnare "${it.name}" come consumato? La quantità in Dispensa non verrà modificata: ${reason}.`;
       }
       if(!confirm(msg)) return;
       if(canScale){
-        it.qty = String(Math.round(Math.max(0, currentQty - amount) * 100) / 100);
+        const nextQty = Math.round(Math.max(0, currentQty - amountInItUnit) * 100) / 100;
+        it.qty = String(nextQty);
         saveDispensaItems();
         renderDispensaList();
-        entry.consumedUndo = [{ id: it.id, amount }];
+        entry.consumedUndo = [{ id: it.id, amount: amountInItUnit }];
       }else{
         entry.consumedUndo = [];
       }
@@ -810,7 +916,11 @@
       if(!match) return;
       const amount = (parseFloat(ing.qty) || 0) * scale;
       if(!amount) return;
-      if(!unitsMatch(match.unit, ing.unit)){
+      // Converte la quantità dell'ingrediente nell'unità del prodotto in Dispensa, per
+      // riconoscere come la stessa unità anche scritture diverse ma equivalenti (g/kg, l/ml,
+      // cucchiaio/cucchiai...).
+      const amountInMatchUnit = convertQty(amount, ing.unit, match.unit);
+      if(amountInMatchUnit === null){
         skipped.add(match.name);
         return;
       }
@@ -819,9 +929,9 @@
         skipped.add(match.name);
         return;
       }
-      const nextQty = Math.round(Math.max(0, currentQty - amount) * 100) / 100;
+      const nextQty = Math.round(Math.max(0, currentQty - amountInMatchUnit) * 100) / 100;
       runningQty.set(match, nextQty);
-      toUpdate.push({ item: match, amount, unit: ing.unit, nextQty });
+      toUpdate.push({ item: match, amount, amountConverted: amountInMatchUnit, unit: ing.unit, nextQty });
     });
     let msg = `Segnare "${recipe.name}" come consumata?`;
     if(toUpdate.length){
@@ -842,7 +952,7 @@
       saveDispensaItems();
       renderDispensaList();
     }
-    entry.consumedUndo = toUpdate.map(u => ({ id: u.item.id, amount: u.amount }));
+    entry.consumedUndo = toUpdate.map(u => ({ id: u.item.id, amount: u.amountConverted }));
     entry.consumed = true;
     saveWeek();
     renderPlanningDays();
@@ -914,11 +1024,17 @@
     aggiornaBarraSelezione();
     renderList();
   });
-  document.getElementById('selection-delete-btn').addEventListener('click', ()=>{
+  document.getElementById('selection-delete-btn').addEventListener('click', async ()=>{
     const n = ricetteSelezionate.size;
     if(n === 0) return;
     const nomi = recipes.filter(r=>ricetteSelezionate.has(r.id)).map(r=>`• ${r.name}`).join('\n');
-    if(!confirm(`Eliminare ${n} ricett${n===1?'a':'e'}?\n\n${nomi}\n\nL'operazione non si può annullare.`)) return;
+    const ok = await confirmDialog({
+      title: `Eliminare ${n} ricett${n===1?'a':'e'}?`,
+      message: `${nomi}\n\nL'operazione non si può annullare.`,
+      confirmText: `Elimina ${n} ricett${n===1?'a':'e'}`,
+      danger: true
+    });
+    if(!ok) return;
     recipes = recipes.filter(r => !ricetteSelezionate.has(r.id));
     // Toglie anche le voci pianificate che puntavano alle ricette eliminate,
     // per non lasciare "(ricetta eliminata)" nella settimana.
@@ -930,11 +1046,17 @@
     renderPlanningDays();
   });
 
-  function renderList(){
+  // Applica a tutte le ricette gli stessi filtri (ricerca, categoria, tempo, preferite, metodo di
+  // cottura, tag, allergeni esclusi, ingredienti esclusi, archiviate) usati dall'elenco a schermo —
+  // estratta a parte così anche l'esportazione PDF dell'intero ricettario può riutilizzarla ed
+  // esportare esattamente le ricette che si vedono in quel momento, non sempre tutte.
+  function getFilteredRecipes(){
     const q = searchEl.value.trim().toLowerCase();
     const cat = categoryFilterEl.value;
     const timeFilter = timeFilterEl.value;
-    let filtered = recipes.filter(r=>{
+    return recipes.filter(r=>{
+      if(showArchivedOnly){ if(!r.archived) return false; }
+      else { if(r.archived) return false; }
       if(favoritesOnly && !r.favorite) return false;
       if(pressureOnly && !recipeHasPressure(r)) return false;
       if(robotOnly && !recipeHasRobot(r)) return false;
@@ -949,6 +1071,10 @@
         const rTags = r.tags || [];
         for(const t of activeTagFilters){ if(!rTags.includes(t)) return false; }
       }
+      if(activeAllergenExclusions.size > 0){
+        const rAllergens = r.allergens || [];
+        for(const a of activeAllergenExclusions){ if(rAllergens.includes(a)) return false; }
+      }
       if(excludeItems.length > 0){
         const hasExcluded = r.ingredients.some(ing=>{
           const name = normalize(ing.name);
@@ -961,6 +1087,10 @@
       const inIngr = r.ingredients.some(i=>i.name.toLowerCase().includes(q));
       return inName || inIngr;
     });
+  }
+
+  function renderList(){
+    let filtered = getFilteredRecipes();
 
     listEl.innerHTML = '';
 
@@ -1078,6 +1208,14 @@
     favoritesOnly = !favoritesOnly;
     favoritesFilterBtn.classList.toggle('btn-gold', favoritesOnly);
     favoritesFilterBtn.classList.toggle('btn-ghost', !favoritesOnly);
+    renderList();
+  });
+  const archivedFilterBtn = document.getElementById('archived-filter-btn');
+  archivedFilterBtn.addEventListener('click', ()=>{
+    showArchivedOnly = !showArchivedOnly;
+    archivedFilterBtn.textContent = showArchivedOnly ? '📂 Mostra attive' : '📦 Mostra archiviate';
+    archivedFilterBtn.classList.toggle('btn-gold', showArchivedOnly);
+    archivedFilterBtn.classList.toggle('btn-ghost', !showArchivedOnly);
     renderList();
   });
   const pressureFilterBtn = document.getElementById('pressure-filter-btn');
@@ -1262,11 +1400,24 @@
     });
   });
 
+  // ---------- Filtro "escludi ricette con questi allergeni" ----------
+  const allergenFilterRow = document.getElementById('allergen-filter-row');
+  allergenFilterRow.innerHTML = ALLERGEN_OPTIONS.map(t=>`<button class="tag-filter-chip" data-allergen="${escapeAttr(t)}">${escapeHtml(t)}</button>`).join('');
+  allergenFilterRow.querySelectorAll('.tag-filter-chip').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const a = btn.dataset.allergen;
+      if(activeAllergenExclusions.has(a)) activeAllergenExclusions.delete(a); else activeAllergenExclusions.add(a);
+      btn.classList.toggle('active', activeAllergenExclusions.has(a));
+      updateFiltersCount();
+      renderList();
+    });
+  });
+
   // ---------- Pannello "Filtri" richiudibile ----------
   const advFiltersToggle = document.getElementById('advanced-filters-toggle');
   const advFiltersPanel = document.getElementById('advanced-filters-panel');
   function updateFiltersCount(){
-    const count = (pressureOnly?1:0) + (robotOnly?1:0) + (traditionalOnly?1:0) + activeTagFilters.size + (excludeItems.length?1:0);
+    const count = (pressureOnly?1:0) + (robotOnly?1:0) + (traditionalOnly?1:0) + activeTagFilters.size + activeAllergenExclusions.size + (excludeItems.length?1:0);
     advFiltersToggle.textContent = count ? `🔍 Filtri (${count}) ▾` : '🔍 Filtri ▾';
   }
   advFiltersToggle.addEventListener('click', ()=>{
@@ -1891,6 +2042,8 @@
   const deleteBtn = document.getElementById('delete-recipe-btn');
   const fTagsWrap = document.getElementById('f-tags-wrap');
   fTagsWrap.innerHTML = TAG_OPTIONS.map(t=>`<label><input type="checkbox" value="${escapeAttr(t)}"> ${escapeHtml(t)}</label>`).join('');
+  const fAllergensWrap = document.getElementById('f-allergens-wrap');
+  fAllergensWrap.innerHTML = ALLERGEN_OPTIONS.map(t=>`<label><input type="checkbox" value="${escapeAttr(t)}"> ${escapeHtml(t)}</label>`).join('');
   let currentPhotoData = '';
 
   /** Legge i 7 campi nutrizionali (per porzione) dal form ricetta. Ritorna
@@ -1932,10 +2085,14 @@
     fNotes.value = source ? (source.notes || '') : '';
     const sourceTags = source && source.tags ? source.tags : [];
     fTagsWrap.querySelectorAll('input[type="checkbox"]').forEach(cb=>{ cb.checked = sourceTags.includes(cb.value); });
+    const sourceAllergens = source && source.allergens ? source.allergens : [];
+    fAllergensWrap.querySelectorAll('input[type="checkbox"]').forEach(cb=>{ cb.checked = sourceAllergens.includes(cb.value); });
+    document.getElementById('f-freezable').checked = !!(source && source.freezable);
     currentPhotoData = source ? (source.photo || '') : '';
     fPhoto.value = '';
-    if(currentPhotoData){ fPhotoPreview.src = currentPhotoData; fPhotoPreview.style.display = 'block'; }
-    else{ fPhotoPreview.style.display = 'none'; }
+    const fPhotoEditBtn = document.getElementById('f-photo-edit-btn');
+    if(currentPhotoData){ fPhotoPreview.src = currentPhotoData; fPhotoPreview.style.display = 'block'; fPhotoEditBtn.style.display = 'inline-block'; }
+    else{ fPhotoPreview.style.display = 'none'; fPhotoEditBtn.style.display = 'none'; }
 
     ingredientsEditor.innerHTML = '';
     const sourceIngredients = (source && source.ingredients && source.ingredients.length) ? source.ingredients : [{name:'',qty:'',unit:''}];
@@ -1960,47 +2117,172 @@
     formDirty = false;
   }
 
-  // Ridimensiona e comprime una foto prima di salvarla (spazio nel browser limitato, e le foto
-  // fatte con il cellulare sono spesso enormi rispetto a quanto serve mostrarle nel ricettario).
-  // Se qualcosa va storto usa comunque l'immagine originale, per non perdere la foto scelta.
-  function compressPhoto(file, maxDim, quality){
-    return new Promise((resolve)=>{
-      const reader = new FileReader();
-      reader.onload = (e)=>{
-        const original = e.target.result;
-        const img = new Image();
-        img.onload = ()=>{
-          let { width, height } = img;
-          if(width <= maxDim && height <= maxDim){
-            resolve(original); // già abbastanza piccola: non serve ricomprimerla
-            return;
-          }
-          const scale = maxDim / Math.max(width, height);
-          width = Math.round(width * scale);
-          height = Math.round(height * scale);
-          try{
-            const canvas = document.createElement('canvas');
-            canvas.width = width; canvas.height = height;
-            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', quality));
-          }catch(err){ resolve(original); }
-        };
-        img.onerror = () => resolve(original);
-        img.src = original;
-      };
-      reader.onerror = () => resolve('');
-      reader.readAsDataURL(file);
-    });
+  // Ridimensiona un canvas già pronto (foto ritagliata/ruotata) se supera la dimensione massima,
+  // e lo converte in JPEG. Le foto fatte con il cellulare sono spesso enormi rispetto a quanto
+  // serve mostrarle nel ricettario, e lo spazio nel browser è limitato.
+  function canvasToResizedDataUrl(canvas, maxDim, quality){
+    const { width, height } = canvas;
+    if(width <= maxDim && height <= maxDim) return canvas.toDataURL('image/jpeg', quality);
+    const scale = maxDim / Math.max(width, height);
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = Math.round(width * scale);
+    outCanvas.height = Math.round(height * scale);
+    outCanvas.getContext('2d').drawImage(canvas, 0, 0, outCanvas.width, outCanvas.height);
+    return outCanvas.toDataURL('image/jpeg', quality);
   }
 
-  fPhoto.addEventListener('change', async ()=>{
+  // ---------- Ritaglio e rotazione della foto ricetta ----------
+  // Un piccolo editor fatto in casa (nessuna libreria esterna): un riquadro trascinabile e
+  // ridimensionabile sopra l'immagine per scegliere l'area da mantenere, più un pulsante che
+  // ruota l'immagine di 90° ad ogni tocco. "Applica" ritaglia alla risoluzione originale (non a
+  // quella ridotta mostrata a schermo) e poi ridimensiona/comprime il risultato come prima.
+  const photoCropOverlay = document.getElementById('photo-crop-overlay');
+  const photoCropImg = document.getElementById('photo-crop-img');
+  const photoCropBoxEl = document.getElementById('photo-crop-box');
+  let cropOriginalSrc = '';   // immagine così com'era all'apertura di questa sessione di ritaglio, per "Reimposta"
+  let cropBoxRect = null;     // riquadro di selezione, in pixel CSS relativi allo stage
+  let imgDisplayRect = null;  // ingombro a schermo dell'immagine corrente, stessi riferimenti del riquadro
+  let cropResolve = null;     // risolve la Promise di openPhotoCropOverlay quando si chiude il pannello
+
+  function renderCropBox(){
+    photoCropBoxEl.style.left = cropBoxRect.x + 'px';
+    photoCropBoxEl.style.top = cropBoxRect.y + 'px';
+    photoCropBoxEl.style.width = cropBoxRect.w + 'px';
+    photoCropBoxEl.style.height = cropBoxRect.h + 'px';
+  }
+  function resetCropBoxToFull(){
+    const stageRect = document.getElementById('photo-crop-stage').getBoundingClientRect();
+    const imgRect = photoCropImg.getBoundingClientRect();
+    imgDisplayRect = { x: imgRect.left - stageRect.left, y: imgRect.top - stageRect.top, w: imgRect.width, h: imgRect.height };
+    cropBoxRect = { ...imgDisplayRect };
+    renderCropBox();
+  }
+  function openPhotoCropOverlay(dataUrl){
+    return new Promise(resolve=>{
+      cropResolve = resolve;
+      cropOriginalSrc = dataUrl;
+      photoCropOverlay.classList.add('active');
+      photoCropImg.onload = ()=> resetCropBoxToFull();
+      photoCropImg.src = dataUrl;
+    });
+  }
+  function closePhotoCropOverlay(result){
+    photoCropOverlay.classList.remove('active');
+    const resolve = cropResolve;
+    cropResolve = null;
+    if(resolve) resolve(result);
+  }
+  // Trascinare il riquadro (non su un angolo) lo sposta, restando dentro i bordi dell'immagine.
+  photoCropBoxEl.addEventListener('pointerdown', (e)=>{
+    if(e.target.classList.contains('photo-crop-handle')) return;
+    e.preventDefault();
+    const startX = e.clientX, startY = e.clientY, start = { ...cropBoxRect };
+    photoCropBoxEl.setPointerCapture(e.pointerId);
+    function onMove(ev){
+      const dx = ev.clientX - startX, dy = ev.clientY - startY;
+      cropBoxRect.x = Math.max(imgDisplayRect.x, Math.min(start.x + dx, imgDisplayRect.x + imgDisplayRect.w - cropBoxRect.w));
+      cropBoxRect.y = Math.max(imgDisplayRect.y, Math.min(start.y + dy, imgDisplayRect.y + imgDisplayRect.h - cropBoxRect.h));
+      renderCropBox();
+    }
+    function onUp(){
+      photoCropBoxEl.removeEventListener('pointermove', onMove);
+      photoCropBoxEl.removeEventListener('pointerup', onUp);
+    }
+    photoCropBoxEl.addEventListener('pointermove', onMove);
+    photoCropBoxEl.addEventListener('pointerup', onUp);
+  });
+  // Trascinare un angolo ridimensiona il riquadro da quel lato, con una dimensione minima e
+  // restando dentro i bordi dell'immagine.
+  const CROP_MIN_SIZE = 40;
+  photoCropOverlay.querySelectorAll('.photo-crop-handle').forEach(handle=>{
+    handle.addEventListener('pointerdown', (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      const corner = handle.dataset.handle;
+      const startX = e.clientX, startY = e.clientY, start = { ...cropBoxRect };
+      handle.setPointerCapture(e.pointerId);
+      function onMove(ev){
+        const dx = ev.clientX - startX, dy = ev.clientY - startY;
+        let { x, y, w, h } = start;
+        if(corner === 'nw'){ x += dx; y += dy; w -= dx; h -= dy; }
+        else if(corner === 'ne'){ y += dy; w += dx; h -= dy; }
+        else if(corner === 'sw'){ x += dx; w -= dx; h += dy; }
+        else { w += dx; h += dy; } // se
+        w = Math.max(CROP_MIN_SIZE, w);
+        h = Math.max(CROP_MIN_SIZE, h);
+        x = Math.max(imgDisplayRect.x, Math.min(x, imgDisplayRect.x + imgDisplayRect.w - CROP_MIN_SIZE));
+        y = Math.max(imgDisplayRect.y, Math.min(y, imgDisplayRect.y + imgDisplayRect.h - CROP_MIN_SIZE));
+        w = Math.min(w, imgDisplayRect.x + imgDisplayRect.w - x);
+        h = Math.min(h, imgDisplayRect.y + imgDisplayRect.h - y);
+        cropBoxRect = { x, y, w, h };
+        renderCropBox();
+      }
+      function onUp(){
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+      }
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+    });
+  });
+  document.getElementById('photo-crop-rotate-btn').addEventListener('click', ()=>{
+    const src = new Image();
+    src.onload = ()=>{
+      const canvas = document.createElement('canvas');
+      canvas.width = src.height; canvas.height = src.width; // 90°: larghezza e altezza si scambiano
+      const ctx = canvas.getContext('2d');
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(Math.PI / 2);
+      ctx.drawImage(src, -src.width / 2, -src.height / 2);
+      photoCropImg.onload = ()=> resetCropBoxToFull();
+      photoCropImg.src = canvas.toDataURL('image/jpeg', 0.92);
+    };
+    src.src = photoCropImg.src;
+  });
+  document.getElementById('photo-crop-reset-btn').addEventListener('click', ()=>{
+    photoCropImg.onload = ()=> resetCropBoxToFull();
+    photoCropImg.src = cropOriginalSrc;
+  });
+  document.getElementById('photo-crop-cancel-btn').addEventListener('click', ()=> closePhotoCropOverlay(null));
+  document.getElementById('photo-crop-apply-btn').addEventListener('click', ()=>{
+    const scaleX = photoCropImg.naturalWidth / imgDisplayRect.w;
+    const scaleY = photoCropImg.naturalHeight / imgDisplayRect.h;
+    const sx = (cropBoxRect.x - imgDisplayRect.x) * scaleX;
+    const sy = (cropBoxRect.y - imgDisplayRect.y) * scaleY;
+    const sw = cropBoxRect.w * scaleX;
+    const sh = cropBoxRect.h * scaleY;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(sw));
+    canvas.height = Math.max(1, Math.round(sh));
+    canvas.getContext('2d').drawImage(photoCropImg, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    closePhotoCropOverlay(canvasToResizedDataUrl(canvas, 1400, 0.82));
+  });
+
+  fPhoto.addEventListener('change', ()=>{
     const file = fPhoto.files[0];
     if(!file) return;
-    const compressed = await compressPhoto(file, 1400, 0.82);
-    if(!compressed) return;
-    currentPhotoData = compressed;
-    fPhotoPreview.src = currentPhotoData;
-    fPhotoPreview.style.display = 'block';
+    const reader = new FileReader();
+    reader.onload = async (e)=>{
+      const result = await openPhotoCropOverlay(e.target.result);
+      fPhoto.value = ''; // permette di riselezionare lo stesso file in seguito, se si annulla
+      if(result){
+        currentPhotoData = result;
+        fPhotoPreview.src = currentPhotoData;
+        fPhotoPreview.style.display = 'block';
+        document.getElementById('f-photo-edit-btn').style.display = 'inline-block';
+      }
+      // Annullato: la foto precedente (se c'era) resta invariata.
+    };
+    reader.onerror = () => alert('Non è stato possibile leggere il file immagine scelto.');
+    reader.readAsDataURL(file);
+  });
+  document.getElementById('f-photo-edit-btn').addEventListener('click', async ()=>{
+    if(!currentPhotoData) return;
+    const result = await openPhotoCropOverlay(currentPhotoData);
+    if(result){
+      currentPhotoData = result;
+      fPhotoPreview.src = currentPhotoData;
+      fPhotoPreview.style.display = 'block';
+    }
   });
 
   function addIngredientRow(data){
@@ -2011,7 +2293,7 @@
       <div class="list-row">
         <input type="text" class="ing-name" placeholder="Ingrediente" value="${escapeAttr(data.name)}">
         <input type="number" class="qty ing-qty" placeholder="Qtà" value="${data.qty ?? ''}">
-        <input type="text" class="unit ing-unit" placeholder="unità" value="${escapeAttr(data.unit)}">
+        <input type="text" class="unit ing-unit" placeholder="unità" value="${escapeAttr(data.unit)}" list="unit-suggestions">
         <button class="remove-row" title="Rimuovi">×</button>
       </div>
     `;
@@ -2092,8 +2374,13 @@
   document.getElementById('edit-close').addEventListener('click', confirmCloseEdit);
   document.getElementById('cancel-edit').addEventListener('click', confirmCloseEdit);
 
-  function confirmCloseEdit(){
-    if(formDirty && !confirm('Hai modifiche non salvate a questa ricetta. Chiudere comunque?')) return;
+  async function confirmCloseEdit(){
+    if(formDirty && !(await confirmDialog({
+      title: 'Modifiche non salvate',
+      message: 'Hai modifiche non salvate a questa ricetta. Chiudere comunque? Le modifiche andranno perse.',
+      confirmText: 'Chiudi senza salvare',
+      danger: true
+    }))) return;
     closeEdit();
   }
   function closeEdit(){ editOverlay.classList.remove('active'); editingId = null; formDirty = false; }
@@ -2158,11 +2445,13 @@
     })).filter(s=>s.text);
 
     const tags = Array.from(fTagsWrap.querySelectorAll('input[type="checkbox"]:checked')).map(cb=>cb.value);
+    const allergens = Array.from(fAllergensWrap.querySelectorAll('input[type="checkbox"]:checked')).map(cb=>cb.value);
+    const freezable = document.getElementById('f-freezable').checked;
 
-    let existingExtra = {favorite:false, lastMade:null, timesMade:0, nutrizioneCrea:null};
+    let existingExtra = {favorite:false, lastMade:null, timesMade:0, nutrizioneCrea:null, archived:false};
     if(editingId){
       const prev = recipes.find(r=>r.id===editingId);
-      if(prev){ existingExtra = {favorite:prev.favorite, lastMade:prev.lastMade, timesMade:prev.timesMade, nutrizioneCrea:prev.nutrizioneCrea||null}; }
+      if(prev){ existingExtra = {favorite:prev.favorite, lastMade:prev.lastMade, timesMade:prev.timesMade, nutrizioneCrea:prev.nutrizioneCrea||null, archived:!!prev.archived}; }
     }
 
     const nutrizioneUtente = leggiNutrizioneUtenteForm();
@@ -2171,9 +2460,9 @@
       id: editingId || cryptoId(), name, category: fCategory.value,
       servings: parseInt(fServings.value) || 1, time: parseInt(fTime.value) || 0,
       cookerType: fCookerType.value,
-      ingredients: finalIngredients, steps, tags, notes: fNotes.value.trim(),
+      ingredients: finalIngredients, steps, tags, allergens, freezable, notes: fNotes.value.trim(),
       photo: currentPhotoData, favorite: existingExtra.favorite, lastMade: existingExtra.lastMade, timesMade: existingExtra.timesMade,
-      nutrizioneCrea: existingExtra.nutrizioneCrea, nutrizioneUtente
+      nutrizioneCrea: existingExtra.nutrizioneCrea, nutrizioneUtente, archived: existingExtra.archived
     };
 
     if(editingId){
@@ -2185,9 +2474,16 @@
     saveRecipes(); renderList(); renderPlanningDays(); closeEdit();
   });
 
-  deleteBtn.addEventListener('click', ()=>{
+  deleteBtn.addEventListener('click', async ()=>{
     if(!editingId) return;
-    if(confirm('Eliminare definitivamente questa ricetta?')){
+    const recipeName = (recipes.find(r=>r.id===editingId) || {}).name || 'questa ricetta';
+    const ok = await confirmDialog({
+      title: 'Eliminare la ricetta?',
+      message: `"${recipeName}" verrà eliminata definitivamente, insieme a eventuali voci pianificate che la usano. L'operazione non si può annullare.`,
+      confirmText: 'Elimina ricetta',
+      danger: true
+    });
+    if(ok){
       recipes = recipes.filter(r=>r.id !== editingId);
       DAYS.forEach(day=>{ weekPlan[day] = (weekPlan[day]||[]).filter(e=>e.recipeId !== editingId); });
       saveRecipes(); saveWeek(); renderList(); renderPlanningDays(); closeEdit();
@@ -2287,6 +2583,18 @@
     if(recipeIsTraditional(r)) extraChips.push('<span class="view-tag-chip">🔥 Tradizionale</span>');
     if(r.cookerType) extraChips.push(`<span class="view-tag-chip">${r.cookerType === 'Elettrica' ? '⚡' : '🔥'} ${escapeHtml(r.cookerType)}</span>`);
     viewTags.innerHTML = (r.tags || []).map(t=>`<span class="view-tag-chip">${escapeHtml(t)}</span>`).join('') + extraChips.join('');
+
+    const viewAllergens = document.getElementById('view-allergens');
+    if(r.allergens && r.allergens.length){
+      viewAllergens.innerHTML = '<span style="font-size:var(--fs-xs);color:var(--ink-soft);margin-right:4px;">⚠ Contiene:</span>' +
+        r.allergens.map(a=>`<span class="view-tag-chip allergen-chip">${escapeHtml(a)}</span>`).join('');
+    } else {
+      viewAllergens.innerHTML = '';
+    }
+    document.getElementById('view-archived-note').style.display = r.archived ? 'block' : 'none';
+    const archiveToggleBtn = document.getElementById('archive-toggle-btn');
+    if(archiveToggleBtn) archiveToggleBtn.textContent = r.archived ? '📂 Disarchivia' : '📦 Archivia';
+    document.getElementById('freezable-suggestion').style.display = r.freezable ? 'flex' : 'none';
 
     if(r.photo){ viewPhoto.src = r.photo; viewPhoto.alt = r.name; viewPhoto.style.display = 'block'; }
     else{ viewPhoto.style.display = 'none'; }
@@ -2412,6 +2720,10 @@
     currentServings++;
     renderView(recipes.find(x=>x.id === currentViewId));
   });
+  document.getElementById('double-servings-btn').addEventListener('click', ()=>{
+    currentServings = currentServings * 2;
+    renderView(recipes.find(x=>x.id === currentViewId));
+  });
 
   document.getElementById('view-close').addEventListener('click', ()=>{
     viewOverlay.classList.remove('active'); currentViewId = null;
@@ -2420,6 +2732,14 @@
     const r = recipes.find(x=>x.id === currentViewId);
     viewOverlay.classList.remove('active');
     openEdit(r);
+  });
+  document.getElementById('archive-toggle-btn').addEventListener('click', ()=>{
+    const r = recipes.find(x=>x.id === currentViewId);
+    if(!r) return;
+    r.archived = !r.archived;
+    saveRecipes();
+    renderView(r);
+    renderList();
   });
   document.getElementById('duplicate-recipe-btn').addEventListener('click', ()=>{
     const r = recipes.find(x=>x.id === currentViewId);
@@ -2486,14 +2806,16 @@
     offerAddMissingToShoppingList(recipes.find(r=>r.id === currentViewId));
   });
 
-  document.getElementById('export-recipe-pdf-btn').addEventListener('click', ()=>{
-    const r = recipes.find(x=>x.id === currentViewId);
-    if(!r) return;
-    const scale = currentServings / (r.servings || 1);
-    const metaLine = `${r.category} · ${currentServings} porzioni${r.time ? ' · circa ' + r.time + ' min' : ''}`;
+  // Costruisce le sezioni PDF (titolo escluso: lo mette chi chiama, serve diverso per l'export
+  // di una singola ricetta rispetto a quello dell'intero ricettario) per una ricetta, alle
+  // porzioni indicate. Condivisa tra l'esportazione di una singola ricetta e quella di tutto
+  // il ricettario, così il contenuto di ciascuna ricetta resta identico nei due casi.
+  function recipePdfSections(r, servings){
+    const scale = servings / (r.servings || 1);
+    const metaLine = `${r.category} · ${servings} porzioni${r.time ? ' · circa ' + r.time + ' min' : ''}`;
     const sections = [{
       heading: null,
-      lines: [metaLine, (r.tags && r.tags.length) ? 'Tag: ' + r.tags.join(', ') : null].filter(Boolean)
+      lines: [metaLine, (r.tags && r.tags.length) ? 'Tag: ' + r.tags.join(', ') : null, (r.allergens && r.allergens.length) ? 'Allergeni: ' + r.allergens.join(', ') : null].filter(Boolean)
     }];
     sections.push({
       heading: 'Ingredienti',
@@ -2523,9 +2845,37 @@
     if(r.notes){
       sections.push({ heading: 'Note', lines: r.notes.split('\n') });
     }
-    const pdfStr = buildPdfFromSections(r.name, sections);
+    return sections;
+  }
+
+  document.getElementById('export-recipe-pdf-btn').addEventListener('click', ()=>{
+    const r = recipes.find(x=>x.id === currentViewId);
+    if(!r) return;
+    const pdfStr = buildPdfFromSections(r.name, recipePdfSections(r, currentServings));
     const safeName = r.name.replace(/[^\w\-]+/g, '_').replace(/^_+|_+$/g,'') || 'ricetta';
     downloadPdf(pdfStr, `${safeName}.pdf`);
+  });
+
+  // Esporta l'intero ricettario in un solo PDF: un indice con i nomi, poi una ricetta per pagina
+  // (alle sue porzioni base, dato che non si sta guardando una scheda precisa con porzioni
+  // scalate). Le ricette archiviate restano fuori, come dal resto del sito.
+  document.getElementById('export-all-pdf-btn').addEventListener('click', ()=>{
+    const active = sortRecipes(recipes.filter(r=>!r.archived));
+    if(!active.length){
+      alert('Non hai ancora nessuna ricetta da esportare (quelle archiviate restano escluse).');
+      return;
+    }
+    const sections = [{
+      heading: 'Indice',
+      lines: active.map(r=>`- ${r.name}`)
+    }];
+    active.forEach(r=>{
+      const recipeSections = recipePdfSections(r, r.servings || 1);
+      recipeSections[0] = { ...recipeSections[0], heading: r.name, headingSize: 16, pageBreakBefore: true };
+      sections.push(...recipeSections);
+    });
+    const pdfStr = buildPdfFromSections('Il Mio Ricettario', sections);
+    downloadPdf(pdfStr, `ricettario-completo-${new Date().toISOString().slice(0,10)}.pdf`);
   });
 
   document.getElementById('export-recipe-json-btn').addEventListener('click', ()=>{
@@ -2655,17 +3005,44 @@
   // Aggrega gli ingredienti di un elenco di { recipe, scale } in un'unica lista per la spesa.
   // "includeExtras" (facoltativo, di base true) aggiunge anche i promemoria degli ingredienti
   // segnalati mancanti dalla Dispensa, quando non già coperti dagli ingredienti aggregati.
+  // Converte una quantità nella sua unità "di base" per poterla sommare insieme ad altre scritte
+  // in modo diverso ma equivalente (es. "500 g" e "0,5 kg" diventano entrambe 500 in base grammi).
+  // Per un'unità non riconosciuta (o nessuna unità) ritorna la quantità invariata.
+  function unitBaseQty(qty, unit){
+    const factor = UNIT_BASE_FACTOR[normalize(unit)];
+    return factor === undefined ? qty : qty * factor;
+  }
+  // Dato il gruppo di un'unità (vedi unitGroupKey) e una quantità già sommata nella relativa
+  // unità di base, sceglie un'unità "leggibile" per mostrarla: g/kg o ml/l a seconda dell'ordine
+  // di grandezza per peso/volume, singolare/plurale per le unità a conteggio, altrimenti l'unità
+  // scritta nel primo ingrediente trovato (unità non riconosciuta: nessuna conversione automatica).
+  function displayUnitForGroup(groupKey, qty, sampleUnit){
+    if(groupKey === 'peso') return qty >= 1000 ? { qty: qty/1000, unit:'kg' } : { qty, unit:'g' };
+    if(groupKey === 'volume') return qty >= 1000 ? { qty: qty/1000, unit:'l' } : { qty, unit:'ml' };
+    const forms = UNIT_DISPLAY_FORMS[groupKey];
+    if(forms) return { qty, unit: Math.abs(qty - 1) < 1e-9 ? forms[1] : forms.many };
+    return { qty, unit: sampleUnit || '' };
+  }
   function buildAggregatedShoppingItems(recipeScalePairs, includeExtras){
     if(includeExtras === undefined) includeExtras = true;
     const aggregated = {};
     recipeScalePairs.forEach(({recipe:r, scale})=>{
       r.ingredients.forEach(ing=>{
-        const key = normalize(ing.name) + '|' + normalize(ing.unit);
-        if(!aggregated[key]){ aggregated[key] = {name: ing.name, unit: ing.unit, qty: 0}; }
-        aggregated[key].qty += (parseFloat(ing.qty) || 0) * scale;
+        // Raggruppa per nome e "famiglia" di unità (peso, volume, o l'unità a conteggio), non per
+        // il testo esatto dell'unità: così "g" e "grammi", oppure "kg" e "g", oppure "cucchiaio" e
+        // "cucchiai" finiscono nella stessa riga della lista della spesa invece di duplicarla.
+        const groupKey = unitGroupKey(ing.unit);
+        const key = normalize(ing.name) + '|' + groupKey;
+        if(!aggregated[key]){ aggregated[key] = {name: ing.name, groupKey, sampleUnit: ing.unit, qty: 0}; }
+        aggregated[key].qty += unitBaseQty((parseFloat(ing.qty) || 0) * scale, ing.unit);
       });
     });
-    let items = Object.values(aggregated).sort((a,b)=>a.name.localeCompare(b.name));
+    let items = Object.values(aggregated)
+      .map(a=>{
+        const disp = displayUnitForGroup(a.groupKey, a.qty, a.sampleUnit);
+        return { name: a.name, unit: disp.unit, qty: disp.qty };
+      })
+      .sort((a,b)=>a.name.localeCompare(b.name));
     if(includeExtras){
       const aggregatedNames = new Set(items.map(i=>normalize(i.name)));
       // Promemoria: ingredienti segnalati mancanti dalla Dispensa quando una ricetta è stata pianificata,
@@ -2775,11 +3152,15 @@
       });
     }
 
-    pushWrapped(TITLE_SIZE, TITLE_GAP, title, 0);
+    if(title) pushWrapped(TITLE_SIZE, TITLE_GAP, title, 0);
 
     sections.forEach(sec=>{
+      // Una sezione con "pageBreakBefore" inizia sempre su una pagina nuova (usata per separare
+      // ogni ricetta in un'esportazione con più ricette insieme), non solo quando il contenuto
+      // non entra più in quella corrente.
+      if(sec.pageBreakBefore && cmds.length){ pages.push(cmds); cmds = []; y = TOP_Y; }
       if(sec.heading){
-        pushWrapped(HEAD_SIZE, HEAD_GAP, sec.heading, 0);
+        pushWrapped(sec.headingSize || HEAD_SIZE, HEAD_GAP, sec.heading, 0);
       }
       (sec.lines && sec.lines.length ? sec.lines : []).forEach(line=>{
         const str = line || ' ';
@@ -3067,12 +3448,13 @@
   }
 
   document.getElementById('export-csv-btn').addEventListener('click', ()=>{
-    const header = ['Nome','Categoria','Porzioni','Tempo (min)','Tag','Ingredienti','Passaggi','Note'];
+    const header = ['Nome','Categoria','Porzioni','Tempo (min)','Tag','Allergeni','Ingredienti','Passaggi','Note'];
     const rows = [header];
     recipes.forEach(r=>{
       rows.push([
         r.name, r.category, r.servings, r.time,
         (r.tags || []).join(', '),
+        (r.allergens || []).join(', '),
         r.ingredients.map(ingredientToCsvText).join(' | '),
         r.steps.map(stepToCsvText).join(' | '),
         r.notes || ''
@@ -3104,6 +3486,7 @@
           servings: header.indexOf('porzioni'),
           time: header.findIndex(h => h.startsWith('tempo')),
           tags: header.indexOf('tag'),
+          allergens: header.indexOf('allergeni'),
           ingredients: header.indexOf('ingredienti'),
           steps: header.indexOf('passaggi'),
           notes: header.indexOf('note')
@@ -3140,6 +3523,7 @@
           const steps = (idx.steps > -1 ? (row[idx.steps] || '') : '')
             .split('|').map(s=>s.trim()).filter(Boolean).map(csvStepTextToStep);
           const tags = idx.tags > -1 ? (row[idx.tags] || '').split(',').map(s=>s.trim()).filter(Boolean) : [];
+          const allergens = idx.allergens > -1 ? (row[idx.allergens] || '').split(',').map(s=>s.trim()).filter(Boolean) : [];
           const catRaw = idx.category > -1 ? (row[idx.category] || '').trim() : '';
           const category = validCategories.includes(catRaw) ? catRaw : 'Altro';
           const servings = idx.servings > -1 ? (parseInt(row[idx.servings],10) || 4) : 4;
@@ -3152,7 +3536,7 @@
             existing.category = category; existing.servings = servings; existing.time = time;
             existing.ingredients = ingredients.length ? ingredients : [{name:'',qty:'',unit:''}];
             existing.steps = steps.length ? steps : [{text:'',vel:'',temp:'',time:'',mode:'Normale'}];
-            existing.tags = tags; existing.notes = notes;
+            existing.tags = tags; existing.allergens = allergens; existing.notes = notes;
             updated++;
             return;
           }
@@ -3161,7 +3545,7 @@
             id: cryptoId(), name, category, servings, time,
             ingredients: ingredients.length ? ingredients : [{name:'',qty:'',unit:''}],
             steps: steps.length ? steps : [{text:'',vel:'',temp:'',time:'',mode:'Normale'}],
-            tags, notes
+            tags, allergens, notes
           }));
           added++;
         });
@@ -3557,6 +3941,12 @@
     document.getElementById('today-shopping-btn').addEventListener('click', ()=>document.getElementById('generate-shopping-btn').click());
   }
 
+  // Etichetta breve mostrata nella barra ☰ su schermo piccolo, per vista corrente.
+  const NAV_LABELS = {
+    today: '☀️ Oggi', recipes: '📖 Ricettario', planning: '📅 Pianificazione',
+    dispensa: '🥫 Dispensa', 'crea-alimenti': '🌾 Valori Alimenti CREA',
+    'crea-menu': '🇮🇹 Ricette CREA', info: 'ℹ️ Come funziona'
+  };
   function switchView(view){
     document.getElementById('today-view').style.display = view === 'today' ? '' : 'none';
     document.getElementById('recipes-view').style.display = view === 'recipes' ? '' : 'none';
@@ -3578,6 +3968,9 @@
     if(view === 'dispensa') renderDispensaList();
     if(view === 'crea-alimenti') apriVistaCreaAlimenti();
     if(view === 'crea-menu') apriVistaCreaMenu();
+    const navCurrentLabel = document.getElementById('nav-current-label');
+    if(navCurrentLabel) navCurrentLabel.textContent = NAV_LABELS[view] || '';
+    closeMobileNav();
   }
   document.getElementById('nav-today-btn').addEventListener('click', ()=> switchView('today'));
   document.getElementById('nav-recipes-btn').addEventListener('click', ()=> switchView('recipes'));
@@ -3586,6 +3979,32 @@
   document.getElementById('nav-crea-alimenti-btn').addEventListener('click', ()=> switchView('crea-alimenti'));
   document.getElementById('nav-crea-menu-btn').addEventListener('click', ()=> switchView('crea-menu'));
   document.getElementById('nav-info-btn').addEventListener('click', ()=> switchView('info'));
+  // Scorciatoie dirette tra Pianificazione e Dispensa, per non dover passare dal menu di
+  // navigazione in alto quando si passa dall'una all'altra mentre si organizza la settimana.
+  document.getElementById('planning-goto-dispensa-btn').addEventListener('click', ()=> switchView('dispensa'));
+  document.getElementById('dispensa-goto-planning-btn').addEventListener('click', ()=> switchView('planning'));
+
+  // ---------- Menu ☰ di navigazione su schermo piccolo ----------
+  // Sotto i 760px la fila di pulsanti vista diventa un menu a tendina aperto/chiuso da
+  // questo pulsante, invece di stare sempre visibile occupando spazio verticale.
+  const viewNavEl = document.getElementById('view-nav');
+  const navHamburgerBtn = document.getElementById('nav-hamburger-btn');
+  function closeMobileNav(){
+    viewNavEl.classList.remove('open');
+    navHamburgerBtn.setAttribute('aria-expanded', 'false');
+  }
+  function toggleMobileNav(){
+    const opening = !viewNavEl.classList.contains('open');
+    viewNavEl.classList.toggle('open', opening);
+    navHamburgerBtn.setAttribute('aria-expanded', String(opening));
+  }
+  navHamburgerBtn.addEventListener('click', (e)=>{ e.stopPropagation(); toggleMobileNav(); });
+  document.addEventListener('click', (e)=>{
+    if(viewNavEl.classList.contains('open') && !viewNavEl.contains(e.target) && e.target !== navHamburgerBtn){
+      closeMobileNav();
+    }
+  });
+  document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeMobileNav(); });
 
   // ---------- Pianificazione settimanale ----------
   const planningDaysEl = document.getElementById('planning-days');
@@ -3716,6 +4135,9 @@
     planServings = parseInt(planServingsInput.value, 10) || 4;
     planServingsInput.value = planServings;
     savePlanServings();
+    // I totali nutrizionali per pasto/giorno e il conteggio da comprare dipendono da "per quante
+    // persone", quindi vanno ricalcolati subito invece di restare fermi al valore precedente.
+    renderPlanningDays();
   });
 
   function renderPlanEntry(e){
@@ -3917,7 +4339,7 @@
       });
     });
     planningDaysEl.querySelectorAll('.plan-entry-remove').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
+      btn.addEventListener('click', async ()=>{
         const entryId = btn.dataset.entryId;
         let entry = null;
         for(const d of DAYS){
@@ -3925,7 +4347,13 @@
           if(found){ entry = found; break; }
         }
         const label = entry ? planEntryName(entry) : 'questo pasto';
-        if(!confirm(`Rimuovere "${label}" dalla pianificazione?`)) return;
+        const ok = await confirmDialog({
+          title: 'Rimuovere dalla pianificazione?',
+          message: `"${label}" verrà tolto dalla pianificazione di questa settimana.`,
+          confirmText: 'Rimuovi',
+          danger: true
+        });
+        if(!ok) return;
         DAYS.forEach(d=>{ weekPlan[d] = (weekPlan[d]||[]).filter(e=>e.id !== entryId); });
         saveWeek();
         renderPlanningDays();
@@ -3947,14 +4375,35 @@
       });
     });
     planningDaysEl.querySelectorAll('.mealtype-remove-btn').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
+      btn.addEventListener('click', async ()=>{
         const mt = btn.dataset.mealtype;
-        if(!confirm(`Rimuovere la fascia "${mt}"? Le ricette già assegnate resteranno visibili sotto "Altro".`)) return;
+        const ok = await confirmDialog({
+          title: 'Rimuovere questa fascia pasto?',
+          message: `La fascia "${mt}" verrà rimossa. Le ricette già assegnate resteranno visibili sotto "Altro", non vengono eliminate.`,
+          confirmText: 'Rimuovi fascia',
+          danger: true
+        });
+        if(!ok) return;
         mealTypes = mealTypes.filter(x=>x!==mt);
         saveMealTypes();
         renderPlanningDays();
       });
     });
+    updatePlanningShoppingCount();
+  }
+
+  // Mostra accanto a "🛒 Lista della spesa (settimana)" quante voci ci sarebbero già da comprare,
+  // così non serve aprire la lista solo per scoprire se c'è qualcosa da segnare: somma gli
+  // ingredienti delle ricette pianificate (come farebbe il pulsante) più i promemoria dalla Dispensa.
+  function updatePlanningShoppingCount(){
+    const badge = document.getElementById('planning-shopping-count');
+    if(!badge) return;
+    const allEntries = DAYS.flatMap(d => weekPlan[d] || []);
+    const plannedRecipes = allEntries.map(e=>recipes.find(r=>r.id===e.recipeId)).filter(Boolean);
+    const pairs = plannedRecipes.map(r=>({ recipe: r, scale: planServings / (r.servings || 1) }));
+    const count = buildAggregatedShoppingItems(pairs).length;
+    if(count > 0){ badge.textContent = ` · ${count}`; badge.style.display = 'inline'; }
+    else { badge.textContent = ''; badge.style.display = 'none'; }
   }
 
   document.getElementById('plan-day-prev').addEventListener('click', ()=>{
@@ -4144,8 +4593,13 @@
     document.getElementById('dispensa-edit-overlay').classList.remove('active');
     formDirty = false;
   }
-  function confirmCloseDispensaEdit(){
-    if(formDirty && !confirm('Hai modifiche non salvate a questo prodotto. Chiudere comunque?')) return;
+  async function confirmCloseDispensaEdit(){
+    if(formDirty && !(await confirmDialog({
+      title: 'Modifiche non salvate',
+      message: 'Hai modifiche non salvate a questo prodotto. Chiudere comunque? Le modifiche andranno perse.',
+      confirmText: 'Chiudi senza salvare',
+      danger: true
+    }))) return;
     closeDispensaEdit();
   }
   document.getElementById('dispensa-edit-overlay').addEventListener('input', ()=>{ formDirty = true; });
@@ -4226,8 +4680,15 @@
     closeDispensaEdit();
   });
 
-  document.getElementById('dispensa-delete-btn').addEventListener('click', ()=>{
-    if(!confirm('Eliminare questo prodotto dalla dispensa?')) return;
+  document.getElementById('dispensa-delete-btn').addEventListener('click', async ()=>{
+    const prodottoNome = (dispensaItems.find(i=>i.id===editingDispensaId) || {}).name || 'questo prodotto';
+    const ok = await confirmDialog({
+      title: 'Eliminare il prodotto?',
+      message: `"${prodottoNome}" verrà eliminato dalla Dispensa, insieme a eventuali voci pianificate che lo usano. L'operazione non si può annullare.`,
+      confirmText: 'Elimina prodotto',
+      danger: true
+    });
+    if(!ok) return;
     dispensaItems = dispensaItems.filter(i=>i.id !== editingDispensaId);
     DAYS.forEach(day=>{ weekPlan[day] = (weekPlan[day]||[]).filter(e=>e.dispensaItemId !== editingDispensaId); });
     saveDispensaItems();
@@ -4248,8 +4709,14 @@
     renderPlanningDays();
   });
 
-  document.getElementById('clear-week-btn').addEventListener('click', ()=>{
-    if(!confirm('Svuotare tutta la pianificazione della settimana?')) return;
+  document.getElementById('clear-week-btn').addEventListener('click', async ()=>{
+    const ok = await confirmDialog({
+      title: 'Svuotare la settimana?',
+      message: 'Tutta la pianificazione di questa settimana verrà rimossa. Una copia resta salvata come "settimana scorsa" e potrai recuperarla con "➕ Aggiungi settimana scorsa".',
+      confirmText: 'Svuota settimana',
+      danger: true
+    });
+    if(!ok) return;
     const hasContent = DAYS.some(d => (weekPlan[d] || []).length);
     if(hasContent){
       previousWeekPlan = JSON.parse(JSON.stringify(weekPlan));
@@ -4264,8 +4731,19 @@
       alert('Nessuna settimana precedente salvata ancora. Viene creata automaticamente ogni volta che premi "Svuota settimana".');
       return;
     }
-    if(!confirm('Questo sostituisce la pianificazione attuale con quella della settimana scorsa. Continuare?')) return;
-    weekPlan = JSON.parse(JSON.stringify(previousWeekPlan));
+    const totaleVoci = DAYS.reduce((n, d) => n + (previousWeekPlan[d] || []).length, 0);
+    if(!confirm(`Aggiungere ${totaleVoci} vo${totaleVoci===1?'ce':'ci'} della settimana scorsa a quella attuale? Quello che hai già pianificato per questa settimana resta invariato.`)) return;
+    // Aggiunge, non sostituisce: ogni voce viene copiata con un nuovo identificativo e segnata
+    // come "da consumare", così non eredita per sbaglio lo stato (✓) della settimana precedente,
+    // e quanto già pianificato per questa settimana non viene toccato.
+    DAYS.forEach(day=>{
+      const voci = previousWeekPlan[day] || [];
+      if(!voci.length) return;
+      if(!weekPlan[day]) weekPlan[day] = [];
+      voci.forEach(voce=>{
+        weekPlan[day].push({ ...JSON.parse(JSON.stringify(voce)), id: cryptoId(), consumed: false });
+      });
+    });
     saveWeek();
     renderPlanningDays();
   });
@@ -4284,9 +4762,17 @@
       if(item.fromDispensaFlag) return false; // quantità comprata sconosciuta: non tocchiamo quella in Dispensa
       const amount = parseFloat(item.qty) || 0;
       if(!amount) return false;
-      if(existing.unit && item.unit && !unitsMatch(existing.unit, item.unit)) return false; // unità diverse: non sommiamo
+      // Converte la quantità comprata nell'unità già usata in Dispensa per quel prodotto, così
+      // "500 g" acquistati si sommano correttamente a "1 kg" già presenti, invece di essere
+      // scartati solo perché scritti con un'unità diversa ma equivalente.
+      let amountToAdd = amount;
+      if(existing.unit && item.unit){
+        const converted = convertQty(amount, item.unit, existing.unit);
+        if(converted === null) return false; // unità non equivalenti: non sommiamo
+        amountToAdd = converted;
+      }
       const current = parseFloat(existing.qty);
-      existing.qty = String(Math.round(((isNaN(current) ? 0 : current) + amount) * 100) / 100);
+      existing.qty = String(Math.round(((isNaN(current) ? 0 : current) + amountToAdd) * 100) / 100);
       if(!existing.unit && item.unit) existing.unit = item.unit;
       return true;
     }
@@ -4422,8 +4908,14 @@
             saveDispensaItems();
             renderDispensaList();
             dispensaSyncCount++;
-            shoppingDispensaSyncNote.textContent = `✓ Aggiornati ${dispensaSyncCount} prodott${dispensaSyncCount===1?'o':'i'} in Dispensa`;
+            shoppingDispensaSyncNote.innerHTML = `✓ Aggiornati ${dispensaSyncCount} prodott${dispensaSyncCount===1?'o':'i'} in Dispensa` +
+              ` — <button type="button" class="link-btn" id="shopping-goto-dispensa-btn">Vedi Dispensa →</button>`;
             shoppingDispensaSyncNote.style.display = 'block';
+            const gotoBtn = document.getElementById('shopping-goto-dispensa-btn');
+            if(gotoBtn) gotoBtn.addEventListener('click', ()=>{
+              shoppingOverlay.classList.remove('active');
+              switchView('dispensa');
+            });
           }
         }
       });
